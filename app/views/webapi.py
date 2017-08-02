@@ -6,22 +6,22 @@ import gevent.monkey;gevent.monkey.patch_all()
 
 import os,subprocess
 from app.core.memory import Memory
-from bottle import response, Bottle
+from bottle import  Bottle, run
 from app.utils.cache import wrapcache
+from app.utils.bottle_ext import allowOrigin
 
 app = Bottle()
 
 @app.route('/meminfo')
+@allowOrigin
 @wrapcache(timeout=5)
 def v_meminfo():
-    response.set_header('Access-Control-Allow-Origin','*')
-    response.set_header('Access-Control-Allow-Method','*')
     return Memory.memBaseInfo()
 
-@app.route('/pxestatus')
+@app.route('/pxe/status')
+@allowOrigin
+@wrapcache(timeout=0.5)
 def v_pxestatus():
-    response.set_header('Access-Control-Allow-Origin','*')
-    response.set_header('Access-Control-Allow-Method','*')
     nginxPid = os.popen('pgrep nginx').readlines()
     dnsmasqPid = os.popen('pgrep dnsmasq').readlines()
     if not nginxPid: nginxPid = None
@@ -45,10 +45,9 @@ def v_pxestatus():
     }
 
 @app.route('/pxe/stop/:serve')
+@allowOrigin
 def v_pxestop(serve):
     if serve not in ['nginx','dnsmasq']:return ''
-    response.set_header('Access-Control-Allow-Origin','*')
-    response.set_header('Access-Control-Allow-Method','*')
     rst = subprocess.Popen(['/usr/bin/killall', serve],
                            stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     rst.wait()
@@ -58,10 +57,9 @@ def v_pxestop(serve):
         return {'result':False}
 
 @app.route('/pxe/start/:serve')
+@allowOrigin
 def v_pxestart(serve):
     if serve not in ['nginx','dnsmasq']:return ''
-    response.set_header('Access-Control-Allow-Origin','*')
-    response.set_header('Access-Control-Allow-Method','*')
     rst = subprocess.Popen([serve],
                            stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     rst.wait()
@@ -71,10 +69,9 @@ def v_pxestart(serve):
         return {'result':False}
 
 @app.route('/pxe/restart/:serve')
+@allowOrigin
 def v_pxerestart(serve):
     if serve not in ['nginx','dnsmasq']:return ''
-    response.set_header('Access-Control-Allow-Origin','*')
-    response.set_header('Access-Control-Allow-Method','*')
     subprocess.Popen(['/usr/bin/killall', serve],
                            stdout=subprocess.PIPE,stderr=subprocess.PIPE).wait()
     rst = subprocess.Popen([serve],
@@ -86,7 +83,5 @@ def v_pxerestart(serve):
         return {'result':False}
 
 
-
-
 if __name__ == '__main__':
-    app.run(server='gevent', host='0.0.0.0', port=8080)
+    run(app=app, server='gevent', host='0.0.0.0', port=8080, reloader=True)
