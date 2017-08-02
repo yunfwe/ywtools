@@ -19,9 +19,9 @@ def ping(ip):
         process = Popen(['ping','-i','0.2','-c','2','-W','1', ip], stdout=PIPE, stderr=PIPE)
     process.communicate()
     if process.returncode == 0:
-        return ip, True
+        return {"ip":ip, "result":True}
     else:
-        return ip, False
+        return {"ip":ip, "result":False}
 
 def netscan(iprange,threads=10):
     pool = ThreadPool(threads)

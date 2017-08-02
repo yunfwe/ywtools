@@ -4,11 +4,15 @@
 
 import gevent.monkey;gevent.monkey.patch_all()
 
-import os,subprocess
+import os,subprocess,json
+
 from app.core.memory import Memory
-from bottle import  Bottle, run
 from app.utils.cache import wrapcache
 from app.utils.bottle_ext import allowOrigin
+from app.tools.netscan import ping
+
+from app.tools.IPy import IP
+from bottle import  Bottle, run, request, abort
 
 app = Bottle()
 
@@ -82,6 +86,40 @@ def v_pxerestart(serve):
     else:
         return {'result':False}
 
+@app.route('/ws/ping')
+def ws_ping():
+    ws = request.environ.get('wsgi.websocket')
+    if not ws:
+        abort(400, 'Expected WebSocket request.')
+    # while True:
+    try:
+        iprange = ws.receive()
+        ips = []
+        if ',' in iprange:
+            ips = iprange.split(',')
+        elif '-' in iprange:
+            s,e = list(map(int,iprange.split('.')[-1].split('-')))
+            for i in range(s,e+1):
+                ips.append('.'.join(iprange.split('-')[0].split('.')[:3])+'.'+str(i))
+        elif '/' in iprange:
+            ips = list(map(lambda x:x.__str__(),IP(iprange)))[1:-1]
+        else:
+            ips.append(iprange)
+        if not ips:ws.close();
+        for ip in ips:
+            ws.send(json.dumps(ping(ip)))
+    except WebSocketError:
+        # break
+        pass
+    finally:
+        ws.close()
+
 
 if __name__ == '__main__':
-    run(app=app, server='gevent', host='0.0.0.0', port=8080, reloader=True)
+    from gevent.pywsgi import WSGIServer
+    from geventwebsocket import WebSocketError
+    from geventwebsocket.handler import WebSocketHandler
+    server = WSGIServer(("0.0.0.0", 8080), app,
+                        handler_class=WebSocketHandler)
+    server.serve_forever()
+    # run(app=app, server='gevent', host='0.0.0.0', port=8080, reloader=True)
