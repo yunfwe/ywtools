@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 # author: weiyunfei  date: 2017-08-01
 
-import gevent.monkey;gevent.monkey.patch_all()
 
 import os,subprocess,json
 

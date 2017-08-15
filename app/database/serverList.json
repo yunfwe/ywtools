@@ -1,0 +1,16 @@
+{
+  "nginx":{
+    "start":"docker start wwwserver",
+    "stop": "docker stop wwwserver",
+    "kill": "docker stop -f wwwserver",
+    "restart": "docker restart wwwserver",
+    "status": "docker ps |grep wwwserver"
+  },
+  "svnserve":{
+    "start":"docker start svn-repo",
+    "stop": "docker stop svn-repo",
+    "kill": "docker stop -f svn-repo",
+    "restart": "docker restart svn-repo",
+    "status": "docker ps -q|grep svn-repo"
+  }
+}

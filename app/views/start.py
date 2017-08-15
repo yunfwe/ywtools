@@ -2,6 +2,8 @@
 # -*- coding:utf-8 -*-
 # author: weiyunfei  date: 2017-08-15
 
+import gevent.monkey;gevent.monkey.patch_all()
+
 from bottle import Bottle
 from app.views.routers.webapi import api
 
