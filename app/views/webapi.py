@@ -86,6 +86,11 @@ def v_pxerestart(serve):
     else:
         return {'result':False}
 
+@app.route('/pyinfo')
+def v_pyinfo():
+    from app.tools.pyinfo import pyinfo
+    return pyinfo()
+
 @app.route('/ws/ping')
 def ws_ping():
     ws = request.environ.get('wsgi.websocket')
