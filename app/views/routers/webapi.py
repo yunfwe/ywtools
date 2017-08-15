@@ -14,15 +14,15 @@ from app.tools.netscan import ping
 from app.tools.IPy import IP
 from bottle import  Bottle, run, request, abort
 
-app = Bottle()
+api = Bottle()
 
-@app.route('/meminfo')
+@api.route('/meminfo')
 @allowOrigin
 @wrapcache(timeout=5)
 def v_meminfo():
     return Memory.memBaseInfo()
 
-@app.route('/pxe/status')
+@api.route('/pxe/status')
 @allowOrigin
 @wrapcache(timeout=0.5)
 def v_pxestatus():
@@ -48,7 +48,7 @@ def v_pxestatus():
         ]
     }
 
-@app.route('/pxe/stop/:serve')
+@api.route('/pxe/stop/:serve')
 @allowOrigin
 def v_pxestop(serve):
     if serve not in ['nginx','dnsmasq']:return ''
@@ -60,7 +60,7 @@ def v_pxestop(serve):
     else:
         return {'result':False}
 
-@app.route('/pxe/start/:serve')
+@api.route('/pxe/start/:serve')
 @allowOrigin
 def v_pxestart(serve):
     if serve not in ['nginx','dnsmasq']:return ''
@@ -72,7 +72,7 @@ def v_pxestart(serve):
     else:
         return {'result':False}
 
-@app.route('/pxe/restart/:serve')
+@api.route('/pxe/restart/:serve')
 @allowOrigin
 def v_pxerestart(serve):
     if serve not in ['nginx','dnsmasq']:return ''
@@ -86,12 +86,12 @@ def v_pxerestart(serve):
     else:
         return {'result':False}
 
-@app.route('/pyinfo')
+@api.route('/pyinfo')
 def v_pyinfo():
     from app.tools.pyinfo import pyinfo
     return pyinfo()
 
-@app.route('/ws/ping')
+@api.route('/ws/ping')
 def ws_ping():
     ws = request.environ.get('wsgi.websocket')
     if not ws:
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     from gevent.pywsgi import WSGIServer
     from geventwebsocket import WebSocketError
     from geventwebsocket.handler import WebSocketHandler
-    server = WSGIServer(("0.0.0.0", 8080), app,
+    server = WSGIServer(("0.0.0.0", 8080), api,
                         handler_class=WebSocketHandler)
     server.serve_forever()
     # run(app=app, server='gevent', host='0.0.0.0', port=8080, reloader=True)

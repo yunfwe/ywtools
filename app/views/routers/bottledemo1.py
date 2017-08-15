@@ -5,16 +5,17 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
-from gevent import monkey;monkey.patch_all()
+from gevent import monkey;
+
+monkey.patch_all()
 import gevent
 from gevent.pywsgi import WSGIServer
-from geventwebsocket import WebSocketError
 from geventwebsocket.handler import WebSocketHandler
 
 import time
 import subprocess
-from bottle import Bottle, run, template, request, static_file, error, abort, redirect, response
-from app.views.subroute import sub
+from bottle import Bottle, request, static_file, abort, redirect, response
+from app.views.routers.subroute import sub
 
 
 
