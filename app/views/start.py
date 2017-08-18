@@ -6,9 +6,11 @@ import gevent.monkey;gevent.monkey.patch_all()
 
 from bottle import Bottle
 from app.views.routers.webapi import api
+from app.views.routers.ServerControl import sc
 
 app = Bottle()
 app.mount('/api/', api)
+app.mount('/control/', sc)
 
 if __name__ == '__main__':
     from gevent.pywsgi import WSGIServer
