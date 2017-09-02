@@ -15,7 +15,7 @@ for i in range(10):
     ppid = os.getppid()
 
     if pid == 0:
-        os.setuid(99)
+        os.setuid(1000)
         os.setsid()
         print('This is child process pid:%s,ppid:%s' % (os.getpid(),ppid))
         time.sleep(100)
