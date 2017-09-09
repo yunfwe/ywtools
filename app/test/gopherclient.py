@@ -5,7 +5,7 @@
 import socket
 import traceback
 
-addr,port = '0.0.0.0',999
+addr,port = '0.0.0.0',1999
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
@@ -14,7 +14,7 @@ s.listen(10)
 print('Server listen on %s:%s' % (addr,port))
 try:
     c,a = s.accept()
-    c.send('OK\r\n')
+    c.send(b'OK\r\n')
     c.close()
 except KeyboardInterrupt as e:
     print('服务已关闭')

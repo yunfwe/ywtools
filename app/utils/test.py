@@ -2,10 +2,9 @@
 # -*- coding:utf-8 -*-
 # author: weiyunfei  date: 2017-07-05
 
-from __future__ import  print_function
+from __future__ import print_function
 
-from app.tools.netscan import netscan
-
+from app.test.netscan import netscan
 
 iprange = []
 for i in range(1,255):

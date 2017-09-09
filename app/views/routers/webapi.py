@@ -3,15 +3,17 @@
 # author: weiyunfei  date: 2017-08-01
 
 
-import os,subprocess,json
+import json
+import os
+import subprocess
+
+from app.test.IPy import IP
+from app.test.netscan import ping
+from bottle import Bottle, request, abort
 
 from app.core.memory import Memory
-from app.utils.cache import wrapcache
 from app.utils.bottle_ext import allowOrigin
-from app.tools.netscan import ping
-
-from app.tools.IPy import IP
-from bottle import  Bottle, run, request, abort
+from app.utils.cache import wrapcache
 
 api = Bottle()
 
@@ -87,7 +89,7 @@ def v_pxerestart(serve):
 
 @api.route('/pyinfo')
 def v_pyinfo():
-    from app.tools.pyinfo import pyinfo
+    from app.test.pyinfo import pyinfo
     return pyinfo()
 
 @api.route('/ws/ping')
