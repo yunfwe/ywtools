@@ -11,7 +11,7 @@ import fcntl
 import struct
 
 
-# 分析/proc/net/dev文件 获取主机网卡接口名称
+# 获取主机网卡接口名称
 def getInterface():
     # with open('/proc/net/dev') as f:
     #     raw = f.readlines()
@@ -59,4 +59,4 @@ def sendIcmpPackage(ip):
 
 if __name__ == '__main__':
     for i in getInterface():
-        print(i+(11-len(i))*' '+'\t'+getMacByInterface(i)+'\t\t'+str(getAddrByInterface(i)))
+        print(i.ljust(15)+'\t'+getMacByInterface(i)+' '*10+str(getAddrByInterface(i)))

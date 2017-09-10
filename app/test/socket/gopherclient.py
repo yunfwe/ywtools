@@ -10,7 +10,7 @@ addr,port = '0.0.0.0',1999
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 s.bind((addr,port))
-s.listen(10)
+s.listen(5)
 print('Server listen on %s:%s' % (addr,port))
 try:
     c,a = s.accept()

@@ -12,7 +12,7 @@ from app.test.netscan import ping
 from bottle import Bottle, request, abort
 
 from app.core.memory import Memory
-from app.utils.bottle_ext import allowOrigin
+from app.utils.bottletools import allowOrigin
 from app.utils.cache import wrapcache
 
 api = Bottle()

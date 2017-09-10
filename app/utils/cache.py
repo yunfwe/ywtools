@@ -106,4 +106,3 @@ def wrapcache(timeout=0, handler=MemoryCache):
         return _function
     return _wrapcache
 
-
