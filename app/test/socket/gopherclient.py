@@ -3,7 +3,6 @@
 # author: weiyunfei  date: 2017-09-07
 
 import socket
-import traceback
 
 addr,port = '0.0.0.0',1999
 
