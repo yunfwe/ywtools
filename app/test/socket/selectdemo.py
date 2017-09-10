@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # author: weiyunfei  date: 2017-09-10
 
-import socket,time,select
+import socket,select
 
 host, port = '', 1999
 
@@ -30,7 +30,6 @@ while True:
                     continue
                 print("Got data: %s" % data.decode('utf-8',errors='ignore'))
                 i.send(b'hehe\r\n')
-                # time.sleep(100)
             else:
                 inputs.remove(i)
                 print("Remove %s" % str(a))
