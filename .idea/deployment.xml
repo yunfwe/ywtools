@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="192.168.8.253">
+  <component name="PublishConfigData" autoUpload="Always" serverName="192.168.4.6">
     <serverData>
-      <paths name="192.168.8.253">
+      <paths name="192.168.4.6">
         <serverdata>
           <mappings>
             <mapping deploy="/ywtools" local="$PROJECT_DIR$" web="/" />
