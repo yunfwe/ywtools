@@ -13,7 +13,7 @@
     <annotation-enable>false</annotation-enable>
     <other-services-enabled>true</other-services-enabled>
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.6.2 (ssh://root@192.168.8.253:22/root/website/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.6.2 (ssh://root@192.168.4.6:22/data/pyvenv/website/bin/python)" project-jdk-type="Python SDK" />
   <component name="TerminalProjectOptionsProvider">
     <option name="myShellPath" value="bash.exe" />
   </component>
