@@ -8,6 +8,7 @@ from __future__ import (print_function,unicode_literals)
 
 # 实现基础的命令执行 文件拷贝 脚本执行
 # 后期实现并发控制 计时功能 日志记录 set/get 修改和获取配置文件内容
+# 提供接口API供其它脚本调用
 
 __author__ = 'weiyunfei'
 __date__ = '2017-09-17'
@@ -124,17 +125,17 @@ def stderr(host,e):
     sys.stderr.write('Error! Host {ip}: '.format(ip=host) + str(e) + '\n')
     sys.stderr.flush()
 
-def sshConnect():
+def sshConnect(hostname=None,port=22,username=None,password=None,timeout=None,auth_timeout=None):
     _ssh = paramiko.SSHClient()
     _ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        _ssh.connect(hostname=curconfig['ssh_host'], port=curconfig['ssh_port'],
-                     username=curconfig['ssh_username'], password=curconfig['ssh_password'],
-                     timeout=curconfig['connect_timeout'], auth_timeout=curconfig['auth_timeout'])
+        _ssh.connect(hostname=hostname, port=port,
+                     username=username, password=password,
+                     timeout=timeout, auth_timeout=auth_timeout)
     except Exception as e:
-        stderr(curconfig['ssh_host'],e)
+        stderr(hostname,e)
         sys.exit(1)
-    return _ssh, (curconfig['ssh_host'], curconfig['ssh_port'], curconfig['ssh_username'])
+    return _ssh, (hostname, port, username)
 
 
 def scp(ssh=None, src=None):
@@ -168,7 +169,7 @@ def scp(ssh=None, src=None):
             sys.exit(1)
     try:
         sftp.put(srcPath, destPath)
-        sftp.chmod(destPath,mode=755)
+        sftp.chmod(destPath,mode=493)
     except Exception as e:
         stderr(ssh[1][0],e)
         sys.exit(1)
@@ -182,7 +183,8 @@ def execute(ssh=None,cmdPath=None):
     try:
         result = ''.join(rst_stdout.readlines())
     except timeout as e:
-        stderr(ssh[1][0],e)
+        del e
+        stderr(ssh[1][0],'timeout!')
         sys.exit(1)
     err = ''.join(rst_stderr.readlines())
     if err:
@@ -266,10 +268,12 @@ def main():
     if not curconfig['ssh_password']:
         print('Not found paasword from argv or config file, but you must provide it.')
         curconfig['ssh_password'] = getpass("Please input password: ")
-    ssh = sshConnect()
+    ssh = sshConnect(hostname=curconfig['ssh_host'], port=curconfig['ssh_port'],
+                     username=curconfig['ssh_username'], password=curconfig['ssh_password'],
+                     timeout=curconfig['connect_timeout'], auth_timeout=curconfig['auth_timeout'])
     dest = scp(ssh=ssh,src=curconfig['script'])
     execute(ssh=ssh,cmdPath=dest)
-    # print(curconfig)
+    print(curconfig)
 
 if __name__ == '__main__':
     main()
