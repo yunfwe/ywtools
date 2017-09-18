@@ -9,6 +9,7 @@ from __future__ import (print_function,unicode_literals)
 # 实现基础的命令执行 文件拷贝 脚本执行
 # 后期实现并发控制 计时功能 日志记录 set/get 修改和获取配置文件内容
 # 提供接口API供其它脚本调用
+# 支持多个主机 支持普通用户sudo  支持远程脚本传参
 
 __author__ = 'weiyunfei'
 __date__ = '2017-09-17'
@@ -133,8 +134,9 @@ def sshConnect(hostname=None,port=22,username=None,password=None,timeout=None,au
                      username=username, password=password,
                      timeout=timeout, auth_timeout=auth_timeout)
     except Exception as e:
-        stderr(hostname,e)
-        sys.exit(1)
+        sys.stderr.write('Error! Host {ip}: connect or auth '.format(ip=hostname) + str(e) + '\n')
+        sys.stderr.flush()
+        sys.exit(2)
     return _ssh, (hostname, port, username)
 
 
@@ -143,21 +145,25 @@ def scp(ssh=None, src=None):
         sftp = ssh[0].open_sftp()
     except Exception as e:
         stderr(ssh[1][0],e)
-        sys.exit(1)
-    if ssh[1][1] == 'root':
+        sys.exit(2)
+    if ssh[1][2] == 'root':
         homePath = '/root'
     else:
         homePath = os.path.join('/home', ssh[1][2])
     if src[-1] == '/':
         sys.stderr.write("You should privode file path instead of directory path.\n")
         sys.stderr.flush()
-        sys.exit(1)
+        sys.exit(2)
     if '/' in src:
         srcPath = src
         dstfile = os.path.split(srcPath)[-1]
     else:
-        srcPath = os.path.join(curconfig['scripts_dir'], src)
-        dstfile = src
+        if os.path.exists('./%s' % src):
+            srcPath = './'+src
+            dstfile = os.path.split(srcPath)[-1]
+        else:
+            srcPath = os.path.join(curconfig['scripts_dir'], src)
+            dstfile = src
     destPath = os.path.join(homePath, '.remotescripts/', dstfile+random())
     try:
         sftp.stat(os.path.dirname(destPath))
@@ -166,13 +172,13 @@ def scp(ssh=None, src=None):
             sftp.mkdir(os.path.dirname(destPath))
         except PermissionError as e:
             stderr(ssh[1][0],e)
-            sys.exit(1)
+            sys.exit(2)
     try:
         sftp.put(srcPath, destPath)
         sftp.chmod(destPath,mode=493)
     except Exception as e:
         stderr(ssh[1][0],e)
-        sys.exit(1)
+        sys.exit(2)
     return destPath
 
 def execute(ssh=None,cmdPath=None):
@@ -185,7 +191,7 @@ def execute(ssh=None,cmdPath=None):
     except timeout as e:
         del e
         stderr(ssh[1][0],'timeout!')
-        sys.exit(1)
+        sys.exit(2)
     err = ''.join(rst_stderr.readlines())
     if err:
         sys.stderr.write(err)
@@ -208,8 +214,8 @@ Usage: remotescript -H <host> -U <username> -P <password> -s <script>
     -U, --username=<username>       username to use when connecting to server. [default=root]
     -P, --password=<password>       Password to use when connecting to server.
     -p, --port=<port>               Port number to use for connecting to server. [default=22]
-    -t, --exec-timeout=<number>     Timeout for script execution. [default=10]
-    -s, --script=<script-name>      Execution this script in remote host. [default=60]
+    -t, --exec-timeout=<number>     Timeout for script execution. [default=60]
+    -s, --script=<script-name>      Execution this script in remote host. 
     -c, --config=<path>             Use this config file. [default=/etc/remotescript.conf]
     
     --init                          Initialization config file and running environment.
@@ -222,7 +228,7 @@ Usage: remotescript -H <host> -U <username> -P <password> -s <script>
 def main():
     try:
         options,args = getopt.getopt(sys.argv[1:],'vhH:U:P:p:t:s:c:',
-                  ['help','host=','port=','username=','password=','script=','init','version'
+                  ['help','host=','port=','username=','password=','script=','init','version',
                    'connect-timeout=','auth-timeout=','exec-timeout=','scripts-dir','config'])
     except getopt.GetoptError as e:
         print(str(e)+'\n'+usage())
@@ -255,11 +261,11 @@ def main():
         if name in ('-s','--script'):
             curconfig['script'] = value
         if name == '--scripts-dir':
-            curconfig['scripts-dir'] = value
+            curconfig['scripts_dir'] = value
         if name == '--connect-timeout':
-            curconfig['connect-timeout'] = int(value)
+            curconfig['connect_timeout'] = int(value)
         if name == '--auth-timeout':
-            curconfig['auth-timeout'] = int(value)
+            curconfig['auth_timeout'] = int(value)
     if not curconfig['script']:
         sys.stderr.write("You must privode file path of script!\n")
         sys.stderr.flush()
