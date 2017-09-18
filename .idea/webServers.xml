@@ -2,8 +2,8 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="981640d3-ff11-4f13-9f70-566dd1387bce" name="192.168.4.6" url="http://192.168.4.6">
-        <fileTransfer host="192.168.4.6" port="22" rootFolder="/data/workspace" accessType="SFTP">
+      <webServer id="c7bd372d-aac7-4e53-8887-22c6ab935591" name="10.0.0.10" url="http://10.0.0.10">
+        <fileTransfer host="10.0.0.10" port="22" rootFolder="/home/yunfwe/workspace" accessType="SFTP">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" />
           </advancedOptions>

@@ -267,12 +267,13 @@ def main():
         if name == '--auth-timeout':
             curconfig['auth_timeout'] = int(value)
     if not curconfig['script']:
-        sys.stderr.write("You must privode file path of script!\n")
+        sys.stderr.write("You must privode file path of script! Use --help see more\n")
         sys.stderr.flush()
         sys.exit(1)
     # print(curconfig)
     if not curconfig['ssh_password']:
-        print('Not found paasword from argv or config file, but you must provide it.')
+        # print('Not found password from argv or config file, but you must provide it.')
+        print('Host: %s  User: %s' % (curconfig['ssh_host'],curconfig['ssh_username']))
         curconfig['ssh_password'] = getpass("Please input password: ")
     ssh = sshConnect(hostname=curconfig['ssh_host'], port=curconfig['ssh_port'],
                      username=curconfig['ssh_username'], password=curconfig['ssh_password'],

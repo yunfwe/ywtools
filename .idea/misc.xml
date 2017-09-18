@@ -1,20 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="JavaScriptSettings">
-    <option name="languageLevel" value="ES6" />
-  </component>
-  <component name="JsBowerSettings">
-    <exe-path />
-    <config-path />
-  </component>
-  <component name="JsFlowSettings">
-    <service-enabled>true</service-enabled>
-    <exe-path />
-    <annotation-enable>false</annotation-enable>
-    <other-services-enabled>true</other-services-enabled>
-  </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.6.2 (ssh://root@192.168.4.6:22/data/pyvenv/website/bin/python)" project-jdk-type="Python SDK" />
-  <component name="TerminalProjectOptionsProvider">
-    <option name="myShellPath" value="bash.exe" />
-  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.5.3 (ssh://yunfwe@10.0.0.10:22/usr/bin/python3)" project-jdk-type="Python SDK" />
 </project>
