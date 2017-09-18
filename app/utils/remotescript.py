@@ -267,7 +267,7 @@ def main():
         if name == '--auth-timeout':
             curconfig['auth_timeout'] = int(value)
     if not curconfig['script']:
-        sys.stderr.write("You must privode file path of script! Use --help see more\n")
+        sys.stderr.write("You must privode file path of script! Use --help see more.\n")
         sys.stderr.flush()
         sys.exit(1)
     # print(curconfig)
