@@ -25,9 +25,7 @@ if __python__ == 3:
     import configparser
 elif __python__ == 2:
     configparser = __import__('ConfigParser')
-import random as rdm
 from socket import timeout
-from getpass import getpass
 
 
 curconfig = {
@@ -119,7 +117,7 @@ def random(size=16):
     pool = list(range(97, 123)) + list(range(65, 91)) + list(range(48, 58))
     _str = ''
     for i in range(size):
-        _str += chr(rdm.choice(pool))
+        _str += chr(__import__('random').choice(pool))
     return _str
 
 def stderr(host,e):
@@ -274,7 +272,7 @@ def main():
     if not curconfig['ssh_password']:
         # print('Not found password from argv or config file, but you must provide it.')
         print('Host: %s  User: %s' % (curconfig['ssh_host'],curconfig['ssh_username']))
-        curconfig['ssh_password'] = getpass("Please input password: ")
+        curconfig['ssh_password'] = __import__('getpass').getpass("Please input password: ")
     ssh = sshConnect(hostname=curconfig['ssh_host'], port=curconfig['ssh_port'],
                      username=curconfig['ssh_username'], password=curconfig['ssh_password'],
                      timeout=curconfig['connect_timeout'], auth_timeout=curconfig['auth_timeout'])
