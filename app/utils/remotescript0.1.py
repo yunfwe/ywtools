@@ -475,7 +475,6 @@ class ParseOptions(object):
                    '    --sep                           If use --append option, Use sep for arguments. [default=" "]\n'
                    '    --init                          Initialization config file and running environment.\n'
                    '    --sudo                          Run operations with sudo. [vaild in cmd and script action]\n'
-                   # '    --sudo-password                 If have --sudo option, ask for sudo password. [vaild in cmd and script action]\n'
                    '    --su                            Run operations with other user. [vaild in cmd and script action]\n'
                    '    --su-password                   If have --su option, ask for other user\'s password. [vaild in cmd and script action]\n'
                    '    --script=<script-name>          Execution this script in remote host. [vaild in script action]\n'
