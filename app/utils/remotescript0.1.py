@@ -311,7 +311,6 @@ def cmd(ssh, cf):
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             sys.exit(2)
         log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
-        # sys.exit(rst[1].channel.recv_exit_status())
         return rst[1].channel.recv_exit_status()
     elif cf.get('sudo'):
         if cf['append'][:5] == 'sudo ':
@@ -332,7 +331,6 @@ def cmd(ssh, cf):
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             sys.exit(2)
         log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
-        # sys.exit(rst[1].channel.recv_exit_status())
         return rst[1].channel.recv_exit_status()
     else:
         try:
@@ -344,7 +342,6 @@ def cmd(ssh, cf):
         if rst[1]: sys.stderr.write(rst[1])
         if rst[0]: sys.stdout.write(rst[0])
         log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
-        # sys.exit(rst[2])
         return rst[2]
 
 
@@ -381,9 +378,7 @@ def put(ssh, cf):
     except Exception as e:
         sys.stdout.write('Error: %s\n' % str(e))
         sys.exit(1)
-    # print("[Put]  src: %s  dest: %s successful" % (src,dest))
     log.info("Host: %s [Put]  src: %s  dest: %s successful" % (ssh.info[0], src, dest))
-    # sys.exit(0)
     return src, dest
 
 
@@ -416,9 +411,7 @@ def get(ssh, cf):
     except Exception as e:
         sys.stdout.write('Error: %s\n' % str(e))
         sys.exit(1)
-    # print("[Get]  src: %s  dest: %s successful" % (src,dest))
     log.info("Host: %s [Get]  src: %s  dest: %s successful" % (ssh.info[0], src, dest))
-    # sys.exit(0)
     return src, dest
 
 
@@ -461,8 +454,12 @@ def script(ssh, cf):
         if not cf['sep'] is None:
             cf['append'] = destPath + ' ' + ' '.join(cf['append'].split(cf['sep']))
     put(ssh, cf)
-    return cmd(ssh, cf)
+    recode =  cmd(ssh, cf)
+    ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
+    return recode
 
+
+def doc():pass
 
 class ParseOptions(object):
     def __init__(self, argv):
@@ -572,10 +569,6 @@ def main():
             Config.config['script'] = value
     global log
     log = Utils.logConfig(Config.config['log_file'])
-    # if not Config.config['script']:
-    #     sys.stderr.write("You must privode file path of script! Use --help see more.\n")
-    #     sys.stderr.flush()
-    #     sys.exit(1)
     if not Config.config['ssh_password']:
         Config.config['ssh_password'] = __import__('getpass').getpass(
             "Remote %s's password: " % Config.config['ssh_username'])
