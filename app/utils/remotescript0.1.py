@@ -6,7 +6,7 @@ from __future__ import (print_function, unicode_literals)
 
 __author__ = 'weiyunfei'
 __date__ = '2017-09-19'
-__version__ = '0.1'
+__version__ = '0.0.2'
 
 import os
 import sys
@@ -17,7 +17,7 @@ if __python__ == 3:
     import configparser
 elif __python__ == 2:
     configparser = __import__('ConfigParser')
-
+from socket import timeout
 
 class Errors(object):
     pass
@@ -78,7 +78,7 @@ class Utils(object):
                                 format='%(asctime)s [remotescript] %(levelname)s: %(message)s',
                                 datefmt='%Y-%m-%d %H:%M:%S',
                                 filename=logFile,
-                                filemode='w')
+                                filemode='a')
             return logging
 
     @staticmethod
@@ -89,27 +89,27 @@ class Utils(object):
             _str += chr(__import__('random').choice(pool))
         return _str
 
-
 class Config(object):
     """
-    优先级：命令行参数 > hosts文件 > 环境变量 > 配置文件 > 程序内置
+    优先级：命令行参数 > 环境变量 > 配置文件 > 程序内置
     """
     config = {
-        # 'ssh_host': '127.0.0.1',
-        'ssh_hosts': [],
-        # 'ssh_group': None,
+        'ssh_host': '127.0.0.1',
         'ssh_groups': [],
         'ssh_port': 22,
         'ssh_username': 'root',
         'ssh_password': None,
+        'ssh_sudo_password':None,
         'scripts_dir': '/usr/share/remotescripts/',
         'config_file': '/etc/remotescript.conf',
-        'ssh_connect_timeout': 5,
+        'ssh_connect_timeout': 10,
+        'ssh_auth_timeout': 10,
         'ssh_execute_timeout': 60,
         'log_file': '/var/log/remotescript.log',
         'script': None,
+        'append':None,
         'debug': False,
-        'inventory_file': './hosts'
+        'sep':None
     }
 
     @staticmethod
@@ -126,14 +126,15 @@ class Config(object):
             _config[s] = dict(cf.items(s))
 
         # parse general section
-        for opt,val in _config.get('general',{}):
+        for opt,val in _config.get('general',{}).items():
             if opt == 'default_scripts_dir':
                 Config.config['scripts_dir'] = val;continue
             if opt == 'log_file':
                 Config.config['log_file'] = val;continue
 
         # parse ssh section
-        for opt,val in _config.get('ssh',{}):
+        # print(_config.get('ssh',{}));exit(1)
+        for opt,val in _config.get('ssh',{}).items():
             if opt == 'default_ssh_host':
                 Config.config['ssh_host'] = val;continue
             if opt == 'default_ssh_port':
@@ -212,11 +213,11 @@ def init():
     print('All initialization successful!')
 
 class SSH(object):
-    def __init__(self,hostname=None,port=22,username=None,password=None,timeout=5):
+    def __init__(self,hostname=None,port=22,username=None,password=None,timeout=5,auth_timeout=5):
         try:
             paramiko = __import__('paramiko')
         except ImportError:
-            sys.stderr.write('Error! Module: paramiko is not found!')
+            sys.stderr.write('Error! Module: paramiko is not found!\n')
             sys.stderr.flush()
             sys.exit(2)
         self._ssh = paramiko.SSHClient()
@@ -224,19 +225,25 @@ class SSH(object):
         self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
             self._ssh.connect(hostname=hostname, port=port, username=username,
-                              password=password, timeout=timeout)
+                              password=password, timeout=timeout, auth_timeout=auth_timeout)
         except Exception as e:
-            sys.stderr.write('Error! Host {ip}: connect '.format(ip=hostname) + str(e) + '\n')
+            sys.stderr.write('Error! Host {ip}: '.format(ip=hostname) + str(e) + '\n')
+            log.error('Host {ip}: '.format(ip=hostname) + str(e))
             sys.stderr.flush()
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
     def _execute(self, command, timeout=None):
-        return self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True,
-                                      timeout=timeout)
+        return self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True, timeout=timeout)
+
     def execute(self, command, timeout=None):
         rst_stdin, rst_stdout, rst_stderr =  self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True,
                                       timeout=timeout)
-        return ''.join(rst_stdout.readlines()), ''.join(rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
+        try:
+            return ''.join(rst_stdout.readlines()), ''.join(rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
+        except timeout:
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0],cmd=command))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0],cmd=command))
+            sys.exit(2)
     def putfile(self, src=None, dest=None, mode=None):
         if mode is None:
             mode = os.stat(src)[0]
@@ -249,19 +256,63 @@ class SSH(object):
         os.chmod(dest,mode)
     def close(self):self._ssh.close()
 
+def script():pass
+def cmd():
+    cf = Config.config
+    if cf['append'] is None:
+        sys.stderr.write('You must privode -a or --append for cmd action! Use --help see more.\n')
+    if not cf['sep'] is None:
+        cf['append'] = ' '.join(cf['append'].split(cf['sep']))
 
+    ssh = SSH(hostname=cf['ssh_host'], username=cf['ssh_username'], password=cf['ssh_password'],
+              timeout=cf['ssh_connect_timeout'],auth_timeout=cf['ssh_auth_timeout'])
+    if cf.get('sudo'):
+        if not cf['ssh_sudo_password']:
+            cf['ssh_sudo_password'] = __import__('getpass').getpass("Please input sudo password: ")
+        if cf['append'][:5] == 'sudo ':
+            rst = ssh._execute(cf['append'], timeout=cf['ssh_execute_timeout'])
+        else:
+            rst = ssh._execute('sudo '+cf['append'], timeout=cf['ssh_execute_timeout'])
+        rst[0].write(cf['ssh_sudo_password']+'\n')
+        try:
+            err = ''.join(rst[2].readlines()[2:])
+            if err:
+                sys.stderr.write(err)
+            result = ''.join(rst[1].readlines()[2:])
+            if result:
+                sys.stdout.write(result)
+        except timeout:
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            sys.exit(2)
+        sys.exit(rst[1].channel.recv_exit_status())
+    else:
+        try:
+            rst = ssh.execute(cf['append'],timeout=cf['ssh_execute_timeout'])
+        except:
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            sys.exit(2)
+        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[1],cmd=cf['append']))
+        if rst[1]:sys.stderr.write(rst[1])
+        if rst[0]:sys.stdout.write(rst[0])
+        sys.exit(rst[2])
+
+
+def put():pass
+def get():pass
 
 
 class ParseOptions(object):
-    options = sys.argv[2:]
-
-    def __init__(self):
+    def __init__(self, argv):
+        short = 'vhH:U:P:p:t:s:c:a:i:f:T:'
+        long = ['help','host=','port=','username=','password=','script=','init','version','sudo','sep=',
+                'sudo-password=','connect-timeout=','append=','execute-timeout=','scripts-dir=','config=',
+                'auth-timeout=']
         try:
-            options,args = getopt.getopt(ParseOptions.options,'vhH:U:P:p:t:s:c:a:',['help','host=','port=','username=',
-                                         'password=','script=','init','version','--sudo', '--sudo-pass'
-                                        'connect-timeout=','append=','execute-timeout=','scripts-dir=','config='])
+            self.options = getopt.getopt(argv,short,long)
         except getopt.GetoptError as e:
-            print(str(e)+'\n'+ParseOptions.usage())
+            print(str(e)+'. Use --help see more.')
             sys.exit(255)
 
     @staticmethod
@@ -269,7 +320,7 @@ class ParseOptions(object):
         __doc__ = ('remotescript Version: {ver}\n'
                    'Get the results of the remote host execution script.\n'
                    '    \n'
-                   'Usage: remotescript <action> -H <host> -U <username> -P <password> -s <script>\n'
+                   'Usage: remotescript <action> -H <host> -U <username> -P <password> ...\n'
                    '\n'
                    '  Actions:\n'
                    '    cmd                             Run command from remote host.\n'
@@ -290,7 +341,7 @@ class ParseOptions(object):
                    '    -p, --port=<port>               Port number to use for connecting to server. [default=22]\n'
                    '    -t, --execute-timeout=<number>  Timeout for script execution. [default=60]\n'
                    '    -s, --script=<script-name>      Execution this script in remote host. [vaild in script action]\n'
-                   '    -a, --append=<arguments>        Pass arguments to the script.\n'
+                   '    -a, --append=<arguments>        Pass arguments to the script or command of cmd.\n'
                    '    -c, --config=<path>             Use this config file. [default=/etc/remotescript.conf]\n'
                    '    \n'
                    '    --sep                           If use --append option, Use sep for arguments. [default=" "]\n'
@@ -298,13 +349,73 @@ class ParseOptions(object):
                    '    --sudo                          Run operations with sudo. [vaild in cmd and script action]\n'
                    '    --sudo-pass                     If have --sudo option, ask for sudo password. [vaild in cmd and script action]\n'
                    '    --scripts-dir=<abspath>         If the script name is only the filename, it will be search in this directory. [default=/usr/share/remotescripts/]\n'
-                   '    --connect-timeout=<number>      Timeout for host connect. [default=10]\n'.format(ver=__version__))
+                   '    --connect-timeout=<number>      Timeout for host connect. [default=10]\n'
+                   '    --auth-timeout=<number>         Timeout for user authentication. [default=10]'
+                   .format(ver=__version__))
         return __doc__
 
 
 def main():
-    pass
+    Config.parseConfigFile()
+    global log
+    log = Utils.logConfig(Config.config['log_file'])
+    if len(sys.argv) < 3:
+        print(ParseOptions.usage());sys.exit(1)
+    if sys.argv[1] not in ('cmd','get','put','script'):
+        print(ParseOptions.usage());sys.exit(1)
+    for name,value in ParseOptions(sys.argv[2:]).options[0]:
+        if name == '--init':
+            init()
+            sys.exit(0)
+        if name in ('-h','--help'):
+            print(ParseOptions.usage())
+            sys.exit(0)
+        if name in ('-v','--version'):
+            print(__version__)
+            sys.exit(0)
+        if name in ('-c','--config'):
+            Config.config['config_file'] = value
+            Config.parseConfigFile()
+        if name in ('-H','--host'):
+            Config.config['ssh_host'] = value
+        if name in ('-U','--username'):
+            Config.config['ssh_username'] = value
+        if name in ('-P','--password'):
+            Config.config['ssh_password'] = value
+        if name in ('-p','--port'):
+            Config.config['ssh_port'] = int(value)
+        if name in ('-t','--execute-timeout'):
+            Config.config['ssh_execute_timeout'] = int(value)
+        if name in ('-a','--append'):
+            Config.config['append'] = value
+        if name in ('-s','--script'):
+            Config.config['script'] = value
+        if name == '--scripts-dir':
+            Config.config['scripts_dir'] = value
+        if name == '--sep':
+            Config.config['sep'] = value
+        if name == '--connect-timeout':
+            Config.config['ssh_connect_timeout'] = int(value)
+        if name == '--auth-timeout':
+            Config.config['ssh_auth_timeout'] = int(value)
+        if name == '--sudo':
+            Config.config['sudo'] = True
+        if name == '--sudo-password':
+            Config.config['ssh_sudo_password'] = value
+    # if not Config.config['script']:
+    #     sys.stderr.write("You must privode file path of script! Use --help see more.\n")
+    #     sys.stderr.flush()
+    #     sys.exit(1)
+    if not Config.config['ssh_password']:
+        print('Host: %s  User: %s' % (Config.config['ssh_host'],Config.config['ssh_username']))
+        Config.config['ssh_password'] = __import__('getpass').getpass("Please input password: ")
+    if sys.argv[1] == 'cmd':
+        cmd()
+
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('Operation cancelled by user')
