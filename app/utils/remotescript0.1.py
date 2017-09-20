@@ -453,6 +453,8 @@ def script(ssh, cf):
     else:
         if not cf['sep'] is None:
             cf['append'] = destPath + ' ' + ' '.join(cf['append'].split(cf['sep']))
+        else:
+            cf['append'] = destPath + ' ' + cf['append']
     put(ssh, cf)
     recode =  cmd(ssh, cf)
     ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
