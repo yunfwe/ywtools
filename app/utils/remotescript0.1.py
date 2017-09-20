@@ -10,17 +10,21 @@ __version__ = '0.0.2'
 
 import os
 import sys
+
 __python__ = sys.version_info[0]
 import time
 import getopt
+
 if __python__ == 3:
     import configparser
 elif __python__ == 2:
     configparser = __import__('ConfigParser')
 from socket import timeout
 
+
 class Errors(object):
     pass
+
 
 class Utils(object):
     @staticmethod
@@ -29,6 +33,7 @@ class Utils(object):
         :return: time.strftime('%Y-%m-%d %H:%M:%S')
         """
         return time.strftime('%Y-%m-%d %H:%M:%S')
+
     @staticmethod
     def timeit(enable=True):
         """
@@ -53,6 +58,7 @@ class Utils(object):
         """
         if enable not in (True, False):
             raise ValueError('enable: Only True or False')
+
         def _timeit(func):
             def _func(*args, **kwargs):
                 now = time.time()
@@ -62,7 +68,9 @@ class Utils(object):
                     return rst, time.time() - now
                 elif enable is False:
                     return rst
+
             return _func
+
         return _timeit
 
     @staticmethod
@@ -71,7 +79,7 @@ class Utils(object):
         if logFile is None:
             logging.basicConfig(level=logging.DEBUG,
                                 format='%(asctime)s [remotescript] %(levelname)s: %(message)s',
-                                datefmt='%Y-%m-%d %H:%M:%S',)
+                                datefmt='%Y-%m-%d %H:%M:%S', )
             return logging
         else:
             logging.basicConfig(level=logging.DEBUG,
@@ -89,6 +97,7 @@ class Utils(object):
             _str += chr(__import__('random').choice(pool))
         return _str
 
+
 class Config(object):
     """
     优先级：命令行参数 > 环境变量 > 配置文件 > 程序内置
@@ -99,7 +108,7 @@ class Config(object):
         'ssh_port': 22,
         'ssh_username': 'root',
         'ssh_password': None,
-        'ssh_su_password':None,
+        'ssh_su_password': None,
         'scripts_dir': '/usr/share/remotescripts/',
         'config_file': '/etc/remotescript.conf',
         'ssh_connect_timeout': 10,
@@ -107,9 +116,9 @@ class Config(object):
         'ssh_execute_timeout': 60,
         'log_file': '/tmp/remotescript.log',
         'script': None,
-        'append':None,
+        'append': None,
         'debug': False,
-        'sep':None
+        'sep': None
     }
 
     @staticmethod
@@ -118,7 +127,7 @@ class Config(object):
 
     @staticmethod
     def parseConfigFile():
-        if not os.path.exists(Config.config['config_file']):return
+        if not os.path.exists(Config.config['config_file']): return
         _config = {}
         cf = configparser.ConfigParser()
         cf.read(Config.config['config_file'])
@@ -126,33 +135,42 @@ class Config(object):
             _config[s] = dict(cf.items(s))
 
         # parse general section
-        for opt,val in _config.get('general',{}).items():
+        for opt, val in _config.get('general', {}).items():
             if opt == 'default_scripts_dir':
-                Config.config['scripts_dir'] = val;continue
+                Config.config['scripts_dir'] = val
+                continue
             if opt == 'log_file':
-                Config.config['log_file'] = val;continue
+                Config.config['log_file'] = val
+                continue
 
         # parse ssh section
         # print(_config.get('ssh',{}));exit(1)
-        for opt,val in _config.get('ssh',{}).items():
+        for opt, val in _config.get('ssh', {}).items():
             if opt == 'default_ssh_host':
-                Config.config['ssh_host'] = val;continue
+                Config.config['ssh_host'] = val
+                continue
             if opt == 'default_ssh_port':
-                Config.config['ssh_port'] = int(val);continue
+                Config.config['ssh_port'] = int(val)
+                continue
             if opt == 'default_ssh_username':
-                Config.config['ssh_username'] = val;continue
+                Config.config['ssh_username'] = val
+                continue
             if opt == 'default_ssh_password':
-                Config.config['ssh_password'] = val;continue
+                Config.config['ssh_password'] = val
+                continue
             if opt == 'default_ssh_connect_timeout':
-                Config.config['ssh_connect_timeout'] = int(val);continue
+                Config.config['ssh_connect_timeout'] = int(val)
+                continue
             if opt == 'default_ssh_auth_timeout':
-                Config.config['ssh_auth_timeout'] = int(val);continue
+                Config.config['ssh_auth_timeout'] = int(val)
+                continue
             if opt == 'default_ssh_execute_timeout':
-                Config.config['ssh_execute_timeout'] = int(val);continue
+                Config.config['ssh_execute_timeout'] = int(val)
+                continue
 
     @staticmethod
     def parseHostsFile():
-        if not os.path.exists(Config.config['hosts_file']):return
+        if not os.path.exists(Config.config['hosts_file']): return
 
     @staticmethod
     def parseEnvironVar():
@@ -196,7 +214,7 @@ def init():
             print('Create directory %s ...' % Config.config['scripts_dir'])
             os.mkdir(Config.config['scripts_dir'])
         except Exception as e:
-            sys.stderr.write("Create %s failed!\nReason: %s\n" % (Config.config['scripts_dir'],str(e)))
+            sys.stderr.write("Create %s failed!\nReason: %s\n" % (Config.config['scripts_dir'], str(e)))
             sys.exit(1)
     else:
         print('Directory: %s already existed! Nothing to do.' % Config.config['scripts_dir'])
@@ -204,7 +222,7 @@ def init():
     if not os.path.exists(Config.config['config_file']):
         try:
             print('Write config template into %s ...' % Config.config['config_file'])
-            open(Config.config['config_file'],'w').write(template)
+            open(Config.config['config_file'], 'w').write(template)
         except Exception as e:
             sys.stderr.write("mkdir: /usr/share/remotescripts/ failed!\nReason: %s\n" % str(e))
             sys.exit(1)
@@ -212,8 +230,9 @@ def init():
         print('Used config file: %s' % Config.config['config_file'])
     print('All initialization successful!')
 
+
 class SSH(object):
-    def __init__(self,hostname=None,port=22,username=None,password=None,timeout=5,auth_timeout=5):
+    def __init__(self, hostname=None, port=22, username=None, password=None, timeout=5, auth_timeout=5):
         try:
             paramiko = __import__('paramiko')
         except ImportError:
@@ -232,31 +251,39 @@ class SSH(object):
             sys.stderr.flush()
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
+
     def _execute(self, command, timeout=None):
         return self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True, timeout=timeout)
+
     def execute(self, command, timeout=None):
-        rst_stdin, rst_stdout, rst_stderr =  self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True,
-                                      timeout=timeout)
+        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command),
+                                                                   get_pty=True,
+                                                                   timeout=timeout)
         try:
-            return ''.join(rst_stdout.readlines()), ''.join(rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
+            return ''.join(rst_stdout.readlines()), ''.join(
+                rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
         except timeout:
-            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0],cmd=command))
-            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0],cmd=command))
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0], cmd=command))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0], cmd=command))
             sys.exit(2)
+
     def putfile(self, src=None, dest=None, mode=None):
         if mode is None:
             mode = os.stat(src)[0]
         self.sftp.put(src, dest)
-        self.sftp.chmod(dest,mode=mode)
+        self.sftp.chmod(dest, mode=mode)
+
     def getfile(self, src, dest, mode=None):
         if mode is None:
             mode = self.sftp.stat(src).st_mode
         self.sftp.get(src, dest)
-        os.chmod(dest,mode)
-    def close(self):self._ssh.close()
+        os.chmod(dest, mode)
+
+    def close(self):
+        self._ssh.close()
 
 
-def cmd(ssh,cf):
+def cmd(ssh, cf):
     if cf['append'] is None:
         sys.stderr.write('You must privode -a or --append for cmd action! Use --help see more.\n')
         sys.exit(1)
@@ -266,10 +293,11 @@ def cmd(ssh,cf):
     if cf.get('su'):
         if not cf['ssh_su_password']:
             cf['ssh_su_password'] = __import__('getpass').getpass("Remote %s's password: " % cf['su'])
-        rst = ssh._execute('su - {user} -c "'.format(user=cf['su'])+cf['append']+'"', timeout=cf['ssh_execute_timeout'])
+        rst = ssh._execute('su - {user} -c "'.format(user=cf['su']) + cf['append'] + '"',
+                           timeout=cf['ssh_execute_timeout'])
         try:
             if rst[1].read(1):
-                rst[0].write(cf['ssh_su_password']+'\n')
+                rst[0].write(cf['ssh_su_password'] + '\n')
             err = ''.join(rst[2].readlines()[1:])
             if err:
                 print(err)
@@ -279,20 +307,20 @@ def cmd(ssh,cf):
             if result:
                 sys.stdout.write(result)
         except timeout:
-            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
-            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             sys.exit(2)
-        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0],cmd=cf['append']))
+        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
         # sys.exit(rst[1].channel.recv_exit_status())
         return rst[1].channel.recv_exit_status()
     elif cf.get('sudo'):
         if cf['append'][:5] == 'sudo ':
             rst = ssh._execute(cf['append'], timeout=cf['ssh_execute_timeout'])
         else:
-            rst = ssh._execute('sudo -i '+cf['append'], timeout=cf['ssh_execute_timeout'])
+            rst = ssh._execute('sudo -i ' + cf['append'], timeout=cf['ssh_execute_timeout'])
         try:
             if rst[1].read(1):
-                rst[0].write(cf['ssh_password']+'\n')
+                rst[0].write(cf['ssh_password'] + '\n')
             err = ''.join(rst[2].readlines()[1:])
             if err:
                 sys.stderr.write(err)
@@ -300,27 +328,27 @@ def cmd(ssh,cf):
             if result:
                 sys.stdout.write(result)
         except timeout:
-            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
-            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             sys.exit(2)
-        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0],cmd=cf['append']))
+        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
         # sys.exit(rst[1].channel.recv_exit_status())
         return rst[1].channel.recv_exit_status()
     else:
         try:
-            rst = ssh.execute(cf['append'],timeout=cf['ssh_execute_timeout'])
+            rst = ssh.execute(cf['append'], timeout=cf['ssh_execute_timeout'])
         except:
-            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
-            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0],cmd=cf['append']))
+            sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
+            log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             sys.exit(2)
-        if rst[1]:sys.stderr.write(rst[1])
-        if rst[0]:sys.stdout.write(rst[0])
-        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0],cmd=cf['append']))
+        if rst[1]: sys.stderr.write(rst[1])
+        if rst[0]: sys.stdout.write(rst[0])
+        log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
         # sys.exit(rst[2])
         return rst[2]
 
 
-def put(ssh,cf):
+def put(ssh, cf):
     try:
         src = cf['src']
         dest = cf['dest']
@@ -328,23 +356,24 @@ def put(ssh,cf):
         print('You must privode --src and --dest for put or get action! Use --help see more.')
         sys.exit(1)
     if not os.path.exists(src):
-        sys.stdout.write('Error: No such file or directory: \'%s\'\n'%src)
+        sys.stdout.write('Error: No such file or directory: \'%s\'\n' % src)
         sys.exit(1)
     if not os.path.isfile(src):
         sys.stdout.write('Error: Don\'t support directory!\n')
         sys.exit(1)
     if dest[-1] == '/':
-        dest = os.path.join(dest,os.path.split(src)[-1])
+        dest = os.path.join(dest, os.path.split(src)[-1])
     try:
         ssh.sftp.stat(dest)
-    except FileNotFoundError:pass
+    except FileNotFoundError:
+        pass
     else:
-        print('Error: Remote file already exists! \'%s\''%dest)
+        print('Error: Remote file already exists! \'%s\'' % dest)
         sys.exit(1)
     try:
-        ssh.putfile(src=src,dest=dest)
+        ssh.putfile(src=src, dest=dest)
     except PermissionError as e:
-        sys.stdout.write('Error: %s!'%str(e))
+        sys.stdout.write('Error: %s!' % str(e))
         sys.exit(1)
     except FileNotFoundError:
         sys.stdout.write('Error: The destination path does not exist! %s\n' % dest)
@@ -353,11 +382,12 @@ def put(ssh,cf):
         sys.stdout.write('Error: %s\n' % str(e))
         sys.exit(1)
     # print("[Put]  src: %s  dest: %s successful" % (src,dest))
-    log.info("Host: %s [Put]  src: %s  dest: %s successful" % (ssh.info[0],src,dest))
+    log.info("Host: %s [Put]  src: %s  dest: %s successful" % (ssh.info[0], src, dest))
     # sys.exit(0)
-    return src,dest
+    return src, dest
 
-def get(ssh,cf):
+
+def get(ssh, cf):
     try:
         src = cf['src']
         dest = cf['dest']
@@ -367,32 +397,32 @@ def get(ssh,cf):
 
     if dest[-1] == '/':
         if not os.path.exists(dest):
-            print('Error: Directory not exists! \'%s\''%dest)
+            print('Error: Directory not exists! \'%s\'' % dest)
             sys.exit(1)
-        dest = os.path.join(dest,os.path.split(src)[-1])
+        dest = os.path.join(dest, os.path.split(src)[-1])
     if os.path.exists(dest):
-        print('Error: File already exists! \'%s\''%dest)
+        print('Error: File already exists! \'%s\'' % dest)
         sys.exit(1)
     try:
         ssh.sftp.stat(src)
     except FileNotFoundError:
-        print('Error: Remote file not exists! \'%s\''%src)
+        print('Error: Remote file not exists! \'%s\'' % src)
         sys.exit(1)
     try:
-        ssh.getfile(src=src,dest=dest)
+        ssh.getfile(src=src, dest=dest)
     except PermissionError as e:
-        sys.stdout.write('Error: %s!'%str(e))
+        sys.stdout.write('Error: %s!' % str(e))
         sys.exit(1)
     except Exception as e:
         sys.stdout.write('Error: %s\n' % str(e))
         sys.exit(1)
     # print("[Get]  src: %s  dest: %s successful" % (src,dest))
-    log.info("Host: %s [Get]  src: %s  dest: %s successful" % (ssh.info[0],src,dest))
+    log.info("Host: %s [Get]  src: %s  dest: %s successful" % (ssh.info[0], src, dest))
     # sys.exit(0)
-    return src,dest
+    return src, dest
 
 
-def script(ssh,cf):
+def script(ssh, cf):
     if not cf['script']:
         sys.stderr.write("You must privode --script for script action! Use --help see more.\n")
         sys.stderr.flush()
@@ -410,40 +440,40 @@ def script(ssh,cf):
         dstfile = os.path.split(srcPath)[-1]
     else:
         if os.path.exists('./%s' % cf['script']):
-            srcPath = './'+cf['script']
+            srcPath = './' + cf['script']
             dstfile = os.path.split(srcPath)[-1]
         else:
             srcPath = os.path.join(cf['scripts_dir'], cf['script'])
             dstfile = cf['script']
-    destPath = os.path.join(homePath, '.remotescripts/', dstfile+Utils.random())
+    destPath = os.path.join(homePath, '.remotescripts/', dstfile + Utils.random())
     try:
         ssh.sftp.stat(os.path.dirname(destPath))
     except FileNotFoundError:
         try:
             ssh.sftp.mkdir(os.path.dirname(destPath))
         except PermissionError as e:
-            sys.stderr('Host: %s %s' % (ssh.info[0],str(e)))
+            sys.stderr('Host: %s %s' % (ssh.info[0], str(e)))
             sys.exit(2)
-    cf['src'],cf['dest'] = srcPath,destPath
+    cf['src'], cf['dest'] = srcPath, destPath
     if cf['append'] is None:
         cf['append'] = destPath
     else:
         if not cf['sep'] is None:
-            cf['append'] = destPath+' '+' '.join(cf['append'].split(cf['sep']))
-    put(ssh,cf)
-    return cmd(ssh,cf)
+            cf['append'] = destPath + ' ' + ' '.join(cf['append'].split(cf['sep']))
+    put(ssh, cf)
+    return cmd(ssh, cf)
 
 
 class ParseOptions(object):
     def __init__(self, argv):
         short = 'vhH:U:P:p:t:s:c:a:d:'
-        long = ['help','host=','port=','username=','password=','script=','init','version','sudo','sep=',
-                'sudo-password=','connect-timeout=','append=','execute-timeout=','scripts-dir=','config=',
-                'auth-timeout=','su=','su-password=','src=','dest=']
+        long = ['help', 'host=', 'port=', 'username=', 'password=', 'script=', 'init', 'version', 'sudo', 'sep=',
+                'sudo-password=', 'connect-timeout=', 'append=', 'execute-timeout=', 'scripts-dir=', 'config=',
+                'auth-timeout=', 'su=', 'su-password=', 'src=', 'dest=']
         try:
-            self.options = getopt.getopt(argv,short,long)
+            self.options = getopt.getopt(argv, short, long)
         except getopt.GetoptError as e:
-            print(str(e)+'. Use --help see more.')
+            print(str(e) + '. Use --help see more.')
             sys.exit(255)
 
     @staticmethod
@@ -488,37 +518,39 @@ class ParseOptions(object):
 def main():
     Config.parseConfigFile()
     if len(sys.argv) < 3:
-        print(ParseOptions.usage());sys.exit(1)
-    if sys.argv[1] not in ('cmd','get','put','script'):
-        print(ParseOptions.usage());sys.exit(1)
-    for name,value in ParseOptions(sys.argv[2:]).options[0]:
+        print(ParseOptions.usage())
+        sys.exit(1)
+    if sys.argv[1] not in ('cmd', 'get', 'put', 'script'):
+        print(ParseOptions.usage())
+        sys.exit(1)
+    for name, value in ParseOptions(sys.argv[2:]).options[0]:
         if name == '--init':
             init()
             sys.exit(0)
-        if name in ('-h','--help'):
+        if name in ('-h', '--help'):
             print(ParseOptions.usage())
             sys.exit(0)
-        if name in ('-v','--version'):
+        if name in ('-v', '--version'):
             print(__version__)
             sys.exit(0)
-        if name in ('-c','--config'):
+        if name in ('-c', '--config'):
             Config.config['config_file'] = value
             Config.parseConfigFile()
-        if name in ('-H','--host'):
+        if name in ('-H', '--host'):
             Config.config['ssh_host'] = value
-        if name in ('-U','--username'):
+        if name in ('-U', '--username'):
             Config.config['ssh_username'] = value
-        if name in ('-P','--password'):
+        if name in ('-P', '--password'):
             Config.config['ssh_password'] = value
-        if name in ('-p','--port'):
+        if name in ('-p', '--port'):
             Config.config['ssh_port'] = int(value)
-        if name in ('-t','--execute-timeout'):
+        if name in ('-t', '--execute-timeout'):
             Config.config['ssh_execute_timeout'] = int(value)
-        if name in ('-a','--append'):
+        if name in ('-a', '--append'):
             Config.config['append'] = value
-        if name in ('-s','--src'):
+        if name in ('-s', '--src'):
             Config.config['src'] = value
-        if name in ('-d','--dest'):
+        if name in ('-d', '--dest'):
             Config.config['dest'] = value
         if name == '--scripts-dir':
             Config.config['scripts_dir'] = value
@@ -545,21 +577,24 @@ def main():
     #     sys.stderr.flush()
     #     sys.exit(1)
     if not Config.config['ssh_password']:
-        Config.config['ssh_password'] = __import__('getpass').getpass("Remote %s's password: "%Config.config['ssh_username'])
-    ssh = SSH(hostname=Config.config['ssh_host'], username=Config.config['ssh_username'], password=Config.config['ssh_password'],
-              timeout=Config.config['ssh_connect_timeout'],auth_timeout=Config.config['ssh_auth_timeout'])
+        Config.config['ssh_password'] = __import__('getpass').getpass(
+            "Remote %s's password: " % Config.config['ssh_username'])
+    ssh = SSH(hostname=Config.config['ssh_host'], username=Config.config['ssh_username'],
+              password=Config.config['ssh_password'],
+              timeout=Config.config['ssh_connect_timeout'], auth_timeout=Config.config['ssh_auth_timeout'])
     if sys.argv[1] == 'cmd':
-        sys.exit(cmd(ssh,Config.config))
+        sys.exit(cmd(ssh, Config.config))
     if sys.argv[1] == 'put':
-        src,dest = put(ssh,Config.config)
-        print("[Put]  src: %s  dest: %s successful" % (src,dest))
+        src, dest = put(ssh, Config.config)
+        print("[Put]  src: %s  dest: %s successful" % (src, dest))
         sys.exit(0)
     if sys.argv[1] == 'get':
-        src,dest = get(ssh,Config.config)
-        print("[Get]  src: %s  dest: %s successful" % (src,dest))
+        src, dest = get(ssh, Config.config)
+        print("[Get]  src: %s  dest: %s successful" % (src, dest))
         sys.exit(0)
     if sys.argv[1] == 'script':
-        sys.exit(script(ssh,Config.config))
+        sys.exit(script(ssh, Config.config))
+
 
 if __name__ == '__main__':
     try:
