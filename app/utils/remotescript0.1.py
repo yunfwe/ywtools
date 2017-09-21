@@ -520,7 +520,7 @@ def main():
         print(ParseOptions.usage())
         sys.exit(1)
     if sys.argv[1] not in ('cmd', 'get', 'put', 'script'):
-        print(ParseOptions.usage())
+        print("Only support 'cmd' 'get' 'put' 'script' action. Use --help see more")
         sys.exit(1)
     for name, value in ParseOptions(sys.argv[2:]).options[0]:
         if name == '--init':
