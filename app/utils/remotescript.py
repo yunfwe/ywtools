@@ -115,7 +115,8 @@ class Config(object):
         'append': None,
         'debug': False,
         'sep': None,
-        'tmp_dir': '/tmp/'
+        'tmp_dir': '/tmp/',
+        'pty': False
     }
 
     @staticmethod
@@ -347,7 +348,7 @@ def cmd(ssh, cf):
         return rst[1].channel.recv_exit_status()
     else:
         try:
-            rst = ssh.execute(cf['append'], timeout=cf['ssh_execute_timeout'])
+            rst = ssh.execute(cf['append'], timeout=cf['ssh_execute_timeout'], get_pty=cf['pty'])
         except:
             sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
@@ -470,7 +471,7 @@ def script(ssh, cf):
             cf['append'] = destPath + ' ' + cf['append']
     put(ssh, cf)
     recode =  cmd(ssh, cf)
-    ssh.execute("rm -rf {cmd}".format(cmd=destPath))
+    ssh.execute("rm -rf {cmd}".format(cmd=destPath), get_pty=False)
     return recode
 
 
@@ -481,7 +482,7 @@ class ParseOptions(object):
         short = 'vhH:U:P:p:t:s:c:a:d:'
         long = ['help', 'host=', 'port=', 'username=', 'password=', 'script=', 'init', 'version', 'sudo', 'sep=',
                 'sudo-password=', 'connect-timeout=', 'append=', 'execute-timeout=', 'scripts-dir=', 'config=',
-                'auth-timeout=', 'su=', 'su-password=', 'src=', 'dest=']
+                'auth-timeout=', 'su=', 'su-password=', 'src=', 'dest=', 'pty']
         try:
             self.options = getopt.getopt(argv, short, long)
         except getopt.GetoptError as e:
@@ -515,10 +516,11 @@ class ParseOptions(object):
                    '    -c, --config=<path>             Use this config file. [default=/etc/remotescript.conf]\n'
                    '    \n'
                    '    --sep                           If use --append option, Use sep for arguments. [default=" "]\n'
+                   '    --pty                           Provide a pty for ssh session\n'
                    '    --init                          Initialization config file and running environment.\n'
                    '    --sudo                          Run operations with sudo. [vaild in cmd and script action]\n'
-                   '    --su                            Run operations with other user. [vaild in cmd and script action]\n'
-                   '    --su-password                   If have --su option, ask for other user\'s password. [vaild in cmd and script action]\n'
+                   '    --su=<user>                     Run operations with other user. [vaild in cmd and script action]\n'
+                   '    --su-password=<password>        If have --su option, ask for other user\'s password. [vaild in cmd and script action]\n'
                    '    --script=<script-name>          Execution this script in remote host. [vaild in script action]\n'
                    '    --scripts-dir=<abspath>         If the script name is only the filename, it will be search in this directory. [default=/usr/share/remotescripts/]\n'
                    '    --connect-timeout=<number>      Timeout for host connect. [default=10]\n'
@@ -588,6 +590,8 @@ def main():
             Config.config['ssh_su_password'] = value
         if name == '--script':
             Config.config['script'] = value
+        if name == '--pty':
+            Config.config['pty'] = True
     global log
     log = Utils.logConfig(Config.config['log_file'])
     if not Config.config['ssh_password']:
