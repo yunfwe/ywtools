@@ -282,21 +282,32 @@ def cmd(ssh, cf):
         cf['append'] = ' '.join(cf['append'].split(cf['sep']))
 
     if cf.get('su'):
-        if not cf['ssh_su_password']:
-            cf['ssh_su_password'] = __import__('getpass').getpass("Remote %s's password: " % cf['su'])
+        if cf['ssh_username'] != 'root':
+            if not cf['ssh_su_password']:
+                cf['ssh_su_password'] = __import__('getpass').getpass("Remote %s's password: " % cf['su'])
         rst = ssh._execute('su - {user} -c "'.format(user=cf['su']) + cf['append'] + '"',
                            timeout=cf['ssh_execute_timeout'])
         try:
-            if rst[1].read(1):
-                rst[0].write(cf['ssh_su_password'] + '\n')
-            err = ''.join(rst[2].readlines()[1:])
-            if err:
-                print(err)
-                sys.stderr.write(err)
-                sys.stderr.flush()
-            result = ''.join(rst[1].readlines()[1:])
-            if result:
-                sys.stdout.write(result)
+            if cf['ssh_username'] == 'root':
+                err = ''.join(rst[2].readlines())
+                result = ''.join(rst[1].readlines())
+                if err:
+                    print(err)
+                    sys.stderr.write(err)
+                    sys.stderr.flush()
+                if result:
+                    sys.stdout.write(result)
+            else:
+                if rst[1].read(1):
+                    rst[0].write(cf['ssh_su_password'] + '\n')
+                err = ''.join(rst[2].readlines()[1:])
+                if err:
+                    print(err)
+                    sys.stderr.write(err)
+                    sys.stderr.flush()
+                result = ''.join(rst[1].readlines()[1:])
+                if result:
+                    sys.stdout.write(result)
         except timeout:
             sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
@@ -309,14 +320,24 @@ def cmd(ssh, cf):
         else:
             rst = ssh._execute('sudo -i ' + cf['append'], timeout=cf['ssh_execute_timeout'])
         try:
-            if rst[1].read(1):
-                rst[0].write(cf['ssh_password'] + '\n')
-            err = ''.join(rst[2].readlines()[1:])
-            if err:
-                sys.stderr.write(err)
-            result = ''.join(rst[1].readlines()[1:])
-            if result:
-                sys.stdout.write(result)
+            if cf['ssh_username'] == 'root':
+                err = ''.join(rst[2].readlines())
+                result = ''.join(rst[1].readlines())
+                if err:
+                    print(err)
+                    sys.stderr.write(err)
+                    sys.stderr.flush()
+                if result:
+                    sys.stdout.write(result)
+            else:
+                if rst[1].read(1):
+                    rst[0].write(cf['ssh_password'] + '\n')
+                err = ''.join(rst[2].readlines()[1:])
+                if err:
+                    sys.stderr.write(err)
+                result = ''.join(rst[1].readlines()[1:])
+                if result:
+                    sys.stdout.write(result)
         except timeout:
             sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
@@ -572,7 +593,7 @@ def main():
         Config.config['ssh_password'] = __import__('getpass').getpass(
             "Remote %s's password: " % Config.config['ssh_username'])
     ssh = SSH(hostname=Config.config['ssh_host'], username=Config.config['ssh_username'],
-              password=Config.config['ssh_password'],
+              password=Config.config['ssh_password'],port=Config.config['ssh_port'],
               timeout=Config.config['ssh_connect_timeout'], auth_timeout=Config.config['ssh_auth_timeout'])
     if sys.argv[1] == 'cmd':
         sys.exit(cmd(ssh, Config.config))
