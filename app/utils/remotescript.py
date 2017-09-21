@@ -516,7 +516,7 @@ class ParseOptions(object):
                    '    -c, --config=<path>             Use this config file. [default=/etc/remotescript.conf]\n'
                    '    \n'
                    '    --sep                           If use --append option, Use sep for arguments. [default=" "]\n'
-                   '    --pty                           Provide a pty for ssh session\n'
+                   '    --pty                           Provide a pty for ssh session.\n'
                    '    --init                          Initialization config file and running environment.\n'
                    '    --sudo                          Run operations with sudo. [vaild in cmd and script action]\n'
                    '    --su=<user>                     Run operations with other user. [vaild in cmd and script action]\n'
