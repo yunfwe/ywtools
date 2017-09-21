@@ -2,12 +2,10 @@
 # -*- coding:utf-8 -*-
 # author: weiyunfei  date: 2017-07-25
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import,print_function
 
-from gevent import monkey;
+from gevent import monkey;monkey.patch_all()
 
-monkey.patch_all()
 import gevent
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
