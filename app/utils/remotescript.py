@@ -249,10 +249,10 @@ class SSH(object):
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
     def _execute(self, command, timeout=None):
-        return self._ssh.exec_command(command, get_pty=True, timeout=timeout)
-        # return self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True, timeout=timeout)
+        return self._ssh.exec_command(command, get_pty=True, timeout=timeout, environment={"LANG":"en_US.UTF-8"})
     def execute(self, command, timeout=None):
-        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=True,timeout=timeout)
+        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=True,timeout=timeout,
+                                                                   environment={"LANG":"en_US.UTF-8"})
         try:
             return ''.join(rst_stdout.readlines()), ''.join(
                 rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
