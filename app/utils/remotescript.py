@@ -249,10 +249,10 @@ class SSH(object):
             sys.stderr.flush()
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
-    def _execute(self, command, timeout=None):
-        return self._ssh.exec_command(command, get_pty=True, timeout=timeout, environment={"LANG":"en_US.UTF-8"})
-    def execute(self, command, timeout=None):
-        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=True,timeout=timeout,
+    def _execute(self, command, timeout=None, get_pty=False):
+        return self._ssh.exec_command(command, get_pty=get_pty, timeout=timeout, environment={"LANG":"en_US.UTF-8"})
+    def execute(self, command, timeout=None, get_pty=False):
+        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=get_pty,timeout=timeout,
                                                                    environment={"LANG":"en_US.UTF-8"})
         try:
             return ''.join(rst_stdout.readlines()), ''.join(
@@ -287,7 +287,7 @@ def cmd(ssh, cf):
             if not cf['ssh_su_password']:
                 cf['ssh_su_password'] = __import__('getpass').getpass("Remote %s's password: " % cf['su'])
         rst = ssh._execute('su - {user} -c "'.format(user=cf['su']) + cf['append'] + '"',
-                           timeout=cf['ssh_execute_timeout'])
+                           timeout=cf['ssh_execute_timeout'],get_pty=True)
         try:
             if cf['ssh_username'] == 'root':
                 err = ''.join(rst[2].readlines())
@@ -317,9 +317,9 @@ def cmd(ssh, cf):
         return rst[1].channel.recv_exit_status()
     elif cf.get('sudo'):
         if cf['append'][:5] == 'sudo ':
-            rst = ssh._execute(cf['append'], timeout=cf['ssh_execute_timeout'])
+            rst = ssh._execute(cf['append'], timeout=cf['ssh_execute_timeout'],get_pty=True)
         else:
-            rst = ssh._execute('sudo -i ' + cf['append'], timeout=cf['ssh_execute_timeout'])
+            rst = ssh._execute('sudo -i ' + cf['append'], timeout=cf['ssh_execute_timeout'],get_pty=True)
         try:
             if cf['ssh_username'] == 'root':
                 err = ''.join(rst[2].readlines())
