@@ -357,7 +357,6 @@ def cmd(ssh, cf):
         log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
         return rst[2]
 
-
 def put(ssh, cf):
     try:
         src = cf['src']
