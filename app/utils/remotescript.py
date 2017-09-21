@@ -627,3 +627,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('Operation cancelled by user')
         exit(1)
+    except Exception as e:
+        print('Error! %s' % str(e))
+        exit(1)
