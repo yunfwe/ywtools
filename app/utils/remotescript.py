@@ -628,5 +628,5 @@ if __name__ == '__main__':
         print('Operation cancelled by user')
         exit(1)
     except Exception as e:
-        print('Error! %s' % str(e))
+        sys.stderr.write('Error! %s\n' % str(e))
         exit(1)
