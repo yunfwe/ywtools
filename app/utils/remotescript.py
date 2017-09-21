@@ -204,6 +204,7 @@ def init():
                 '# default_ssh_username = root\n'
                 '# default_ssh_password = 111111\n'
                 '# default_ssh_connect_timeout = 10\n'
+                '# default_ssh_auth_timeout = 10\n'
                 '# default_ssh_execute_timeout = 60\n\n')
     if not os.path.exists(Config.config['scripts_dir']):
         try:
@@ -506,6 +507,9 @@ class ParseOptions(object):
 
 def main():
     Config.parseConfigFile()
+    if sys.argv[1] == '--init':
+        init()
+        sys.exit(0)
     if len(sys.argv) < 3:
         print(ParseOptions.usage())
         sys.exit(1)
