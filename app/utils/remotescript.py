@@ -6,7 +6,7 @@ from __future__ import (print_function, unicode_literals)
 
 __author__ = 'weiyunfei'
 __date__ = '2017-09-19'
-__version__ = '0.0.2'
+__version__ = '1.0.0'
 
 import os
 import sys
