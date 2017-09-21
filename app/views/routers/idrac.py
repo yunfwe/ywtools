@@ -16,7 +16,7 @@ app = bottle.Bottle()
 
 @app.route('/')
 def index():
-    for i in range(10):
+    for i in range(1):
         time.sleep(1)
         yield str(i)+'\r\n'
     # print('IDRAC Control')
