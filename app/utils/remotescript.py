@@ -506,7 +506,9 @@ class ParseOptions(object):
 
 
 def main():
-    Config.parseConfigFile()
+    if len(sys.argv) == 1:
+        print(ParseOptions.usage())
+        sys.exit(1)
     if sys.argv[1] == '--init':
         init()
         sys.exit(0)
@@ -516,6 +518,7 @@ def main():
     if sys.argv[1] not in ('cmd', 'get', 'put', 'script'):
         print("Only support 'cmd' 'get' 'put' 'script' action. Use --help see more")
         sys.exit(1)
+    Config.parseConfigFile()
     for name, value in ParseOptions(sys.argv[2:]).options[0]:
         if name == '--init':
             init()
