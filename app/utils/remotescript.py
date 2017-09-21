@@ -294,7 +294,7 @@ def cmd(ssh, cf):
                 err = ''.join(rst[2].readlines())
                 result = ''.join(rst[1].readlines())
                 if err:
-                    print(err)
+                    # print(err)
                     sys.stderr.write(err)
                     sys.stderr.flush()
                 if result:
@@ -304,7 +304,7 @@ def cmd(ssh, cf):
                     rst[0].write(cf['ssh_su_password'] + '\n')
                 err = ''.join(rst[2].readlines()[1:])
                 if err:
-                    print(err)
+                    # print(err)
                     sys.stderr.write(err)
                     sys.stderr.flush()
                 result = ''.join(rst[1].readlines()[1:])
@@ -326,7 +326,7 @@ def cmd(ssh, cf):
                 err = ''.join(rst[2].readlines())
                 result = ''.join(rst[1].readlines())
                 if err:
-                    print(err)
+                    # print(err)
                     sys.stderr.write(err)
                     sys.stderr.flush()
                 if result:
@@ -383,7 +383,7 @@ def put(ssh, cf):
     try:
         ssh.putfile(src=src, dest=dest)
     except PermissionError as e:
-        sys.stdout.write('Error: %s!' % str(e))
+        sys.stdout.write('Error: %s!\n' % str(e))
         sys.exit(1)
     except FileNotFoundError:
         sys.stdout.write('Error: The destination path does not exist! %s\n' % dest)
@@ -452,7 +452,7 @@ def script(ssh, cf):
             srcPath = os.path.join(cf['scripts_dir'], cf['script'])
             dstfile = cf['script']
     homePath = cf['tmp_dir']
-    destPath = os.path.join(homePath, '.remotescripts/', dstfile + Utils.random())
+    destPath = os.path.join(homePath, '.'+ssh.info[2], dstfile + Utils.random())
     try:
         ssh.sftp.stat(os.path.dirname(destPath))
     except FileNotFoundError:
