@@ -10,7 +10,6 @@ __version__ = '0.0.2'
 
 import os
 import sys
-
 __python__ = sys.version_info[0]
 import time
 import getopt
