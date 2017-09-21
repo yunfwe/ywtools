@@ -447,7 +447,7 @@ def script(ssh, cf):
             cf['append'] = destPath + ' ' + cf['append']
     put(ssh, cf)
     recode =  cmd(ssh, cf)
-    # ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
+    ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
     return recode
 
 
