@@ -10,6 +10,7 @@ __version__ = '0.0.2'
 
 import os
 import sys
+
 __python__ = sys.version_info[0]
 import time
 import getopt
@@ -249,11 +250,13 @@ class SSH(object):
             sys.stderr.flush()
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
+
     def _execute(self, command, timeout=None, get_pty=False):
-        return self._ssh.exec_command(command, get_pty=get_pty, timeout=timeout, environment={"LANG":"en_US.UTF-8"})
+        return self._ssh.exec_command(command, get_pty=get_pty, timeout=timeout, environment={"LANG": "en_US.UTF-8"})
+
     def execute(self, command, timeout=None, get_pty=False):
-        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=get_pty,timeout=timeout,
-                                                                   environment={"LANG":"en_US.UTF-8"})
+        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=get_pty, timeout=timeout,
+                                                                   environment={"LANG": "en_US.UTF-8"})
         try:
             return ''.join(rst_stdout.readlines()), ''.join(
                 rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
@@ -261,16 +264,19 @@ class SSH(object):
             sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0], cmd=command))
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0], cmd=command))
             sys.exit(2)
+
     def putfile(self, src=None, dest=None, mode=None):
         if mode is None:
             mode = os.stat(src)[0]
         self.sftp.put(src, dest)
         self.sftp.chmod(dest, mode=mode)
+
     def getfile(self, src, dest, mode=None):
         if mode is None:
             mode = self.sftp.stat(src).st_mode
         self.sftp.get(src, dest)
         os.chmod(dest, mode)
+
     def close(self):
         self._ssh.close()
 
@@ -287,7 +293,7 @@ def cmd(ssh, cf):
             if not cf['ssh_su_password']:
                 cf['ssh_su_password'] = __import__('getpass').getpass("Remote %s's password: " % cf['su'])
         rst = ssh._execute('su - {user} -c "'.format(user=cf['su']) + cf['append'] + '"',
-                           timeout=cf['ssh_execute_timeout'],get_pty=True)
+                           timeout=cf['ssh_execute_timeout'], get_pty=True)
         try:
             if cf['ssh_username'] == 'root':
                 err = ''.join(rst[2].readlines())
@@ -317,9 +323,9 @@ def cmd(ssh, cf):
         return rst[1].channel.recv_exit_status()
     elif cf.get('sudo'):
         if cf['append'][:5] == 'sudo ':
-            rst = ssh._execute(cf['append'], timeout=cf['ssh_execute_timeout'],get_pty=True)
+            rst = ssh._execute(cf['append'], timeout=cf['ssh_execute_timeout'], get_pty=True)
         else:
-            rst = ssh._execute('sudo -i ' + cf['append'], timeout=cf['ssh_execute_timeout'],get_pty=True)
+            rst = ssh._execute('sudo -i ' + cf['append'], timeout=cf['ssh_execute_timeout'], get_pty=True)
         try:
             if cf['ssh_username'] == 'root':
                 err = ''.join(rst[2].readlines())
@@ -356,6 +362,7 @@ def cmd(ssh, cf):
         if rst[0]: sys.stdout.write(rst[0])
         log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
         return rst[2]
+
 
 def put(ssh, cf):
     try:
@@ -451,7 +458,7 @@ def script(ssh, cf):
             srcPath = os.path.join(cf['scripts_dir'], cf['script'])
             dstfile = cf['script']
     homePath = cf['tmp_dir']
-    destPath = os.path.join(homePath, '.'+ssh.info[2], dstfile + Utils.random())
+    destPath = os.path.join(homePath, '.' + ssh.info[2], dstfile + Utils.random())
     try:
         ssh.sftp.stat(os.path.dirname(destPath))
     except FileNotFoundError:
@@ -469,12 +476,13 @@ def script(ssh, cf):
         else:
             cf['append'] = destPath + ' ' + cf['append']
     put(ssh, cf)
-    recode =  cmd(ssh, cf)
+    recode = cmd(ssh, cf)
     ssh.execute("rm -rf {cmd}".format(cmd=destPath), get_pty=False)
     return recode
 
 
-def doc():pass
+def doc(): pass
+
 
 class ParseOptions(object):
     def __init__(self, argv):
@@ -597,7 +605,7 @@ def main():
         Config.config['ssh_password'] = __import__('getpass').getpass(
             "Remote %s's password: " % Config.config['ssh_username'])
     ssh = SSH(hostname=Config.config['ssh_host'], username=Config.config['ssh_username'],
-              password=Config.config['ssh_password'],port=Config.config['ssh_port'],
+              password=Config.config['ssh_password'], port=Config.config['ssh_port'],
               timeout=Config.config['ssh_connect_timeout'], auth_timeout=Config.config['ssh_auth_timeout'])
     if sys.argv[1] == 'cmd':
         sys.exit(cmd(ssh, Config.config))
