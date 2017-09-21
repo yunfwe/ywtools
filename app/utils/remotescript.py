@@ -114,7 +114,8 @@ class Config(object):
         'script': None,
         'append': None,
         'debug': False,
-        'sep': None
+        'sep': None,
+        'tmp_dir': '/tmp/'
     }
 
     @staticmethod
@@ -432,10 +433,10 @@ def script(ssh, cf):
         sys.stderr.write("You must privode --script for script action! Use --help see more.\n")
         sys.stderr.flush()
         sys.exit(1)
-    if ssh.info[2] == 'root':
-        homePath = '/root'
-    else:
-        homePath = os.path.join('/home', ssh.info[2])
+    # if ssh.info[2] == 'root':
+    #     homePath = '/root'
+    # else:
+    #     homePath = os.path.join('/home', ssh.info[2])
     if cf['script'][-1] == '/':
         sys.stderr.write("Error: --script option, You should privode file path instead of directory path.\n")
         sys.stderr.flush()
@@ -450,6 +451,7 @@ def script(ssh, cf):
         else:
             srcPath = os.path.join(cf['scripts_dir'], cf['script'])
             dstfile = cf['script']
+    homePath = cf['tmp_dir']
     destPath = os.path.join(homePath, '.remotescripts/', dstfile + Utils.random())
     try:
         ssh.sftp.stat(os.path.dirname(destPath))
