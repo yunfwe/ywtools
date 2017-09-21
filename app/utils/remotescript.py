@@ -14,11 +14,7 @@ import sys
 __python__ = sys.version_info[0]
 import time
 import getopt
-
-if __python__ == 3:
-    import configparser
-elif __python__ == 2:
-    configparser = __import__('ConfigParser')
+import configparser
 from socket import timeout
 
 
@@ -234,7 +230,7 @@ def init():
 class SSH(object):
     def __init__(self, hostname=None, port=22, username=None, password=None, timeout=5, auth_timeout=5):
         try:
-            paramiko = __import__('paramiko')
+            import paramiko
         except ImportError:
             sys.stderr.write('Error! Module: paramiko is not found!\n')
             sys.stderr.flush()
@@ -251,14 +247,11 @@ class SSH(object):
             sys.stderr.flush()
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
-
     def _execute(self, command, timeout=None):
-        return self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True, timeout=timeout)
-
+        return self._ssh.exec_command(command, get_pty=True, timeout=timeout)
+        # return self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command), get_pty=True, timeout=timeout)
     def execute(self, command, timeout=None):
-        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command("bash -c \"{cmd}\"".format(cmd=command),
-                                                                   get_pty=True,
-                                                                   timeout=timeout)
+        rst_stdin, rst_stdout, rst_stderr = self._ssh.exec_command(command, get_pty=True,timeout=timeout)
         try:
             return ''.join(rst_stdout.readlines()), ''.join(
                 rst_stderr.readlines()), rst_stdout.channel.recv_exit_status()
@@ -266,19 +259,16 @@ class SSH(object):
             sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0], cmd=command))
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=self.info[0], cmd=command))
             sys.exit(2)
-
     def putfile(self, src=None, dest=None, mode=None):
         if mode is None:
             mode = os.stat(src)[0]
         self.sftp.put(src, dest)
         self.sftp.chmod(dest, mode=mode)
-
     def getfile(self, src, dest, mode=None):
         if mode is None:
             mode = self.sftp.stat(src).st_mode
         self.sftp.get(src, dest)
         os.chmod(dest, mode)
-
     def close(self):
         self._ssh.close()
 
@@ -457,7 +447,7 @@ def script(ssh, cf):
             cf['append'] = destPath + ' ' + cf['append']
     put(ssh, cf)
     recode =  cmd(ssh, cf)
-    ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
+    # ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
     return recode
 
 
@@ -596,3 +586,4 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         print('Operation cancelled by user')
+        exit(1)
