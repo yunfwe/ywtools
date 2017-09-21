@@ -110,7 +110,7 @@ class Config(object):
         'ssh_connect_timeout': 10,
         'ssh_auth_timeout': 10,
         'ssh_execute_timeout': 60,
-        'log_file': '/tmp/remotescript.log',
+        'log_file': '/dev/null',
         'script': None,
         'append': None,
         'debug': False,
@@ -448,7 +448,7 @@ def script(ssh, cf):
             cf['append'] = destPath + ' ' + cf['append']
     put(ssh, cf)
     recode =  cmd(ssh, cf)
-    ssh._ssh.exec_command("bash -c \"rm -rf {cmd}\"".format(cmd=destPath),get_pty=True)
+    ssh.execute("rm -rf {cmd}".format(cmd=destPath))
     return recode
 
 
