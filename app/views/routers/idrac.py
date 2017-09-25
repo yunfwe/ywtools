@@ -19,13 +19,37 @@ import requests
 import dracclient.client
 import urllib3;urllib3.disable_warnings()
 
+
+dbConfig = {
+    "host": "127.0.0.1",
+    "user": "root",
+    "passwd": "123456",
+    "db": "test",
+    "port": 3306,
+    "charset": "utf8",
+    "autocommit": True
+}
+
+class fieldMap(object):
+    # 表名
+    table       = 'mrtg.xxx'
+    # 下面是字段映射
+    id          = 'id'              # 主键
+    hostip      = 'ip'              # 主机IP
+    ipmiip      = 'ipmi'            # IPMI接口IP
+    ipmiUser    = 'root'            # IDRAC登陆用户
+    ipmiPass    = 'calvin'          # IDRAC登陆密码
+    status      = 'status'          # 0-OFF  1-ON  2-REBOOT  3-NULL
+    position    = 'position'        # 所在机房位置
+
+
 class idrac(object):
     def __init__(self, ip, username, password):
         self.ip,self.username,self.password = ip,username,password
         self.client = dracclient.client.DRACClient(ip,username,password)
 
     def ping(self):
-        return True
+        # return True
         try:
             return {'200':True}.get(str(requests.get(
                 'https://{ip}/login.html'.format(ip=self.ip),
@@ -37,7 +61,7 @@ class idrac(object):
         """
         :return: 'POWER_ON', 'POWER_OFF' or 'REBOOT'
         """
-        return 'POWER_ON'
+        # return 'POWER_ON'
         try: return self.client.get_power_state()
         except: return False
 
@@ -53,7 +77,7 @@ class idrac(object):
     #         except: return False
     #     else: return False
     def setPowerState(self,state):
-        return True
+        # return True
         """
         :param state: 'POWER_ON', 'POWER_OFF' or 'REBOOT'
         :return: True or False
@@ -79,9 +103,6 @@ threadnum = 10
 threadPool = []
 threadPoolLock = threading.Lock()
 
-def show():
-    for i in threadPool:
-        print("%s\t\t%s"%(i.getName(),i.status))
 
 class HandlerThread(threading.Thread):
     def __init__(self):
@@ -106,13 +127,6 @@ class HandlerThread(threading.Thread):
                 with threadPoolLock: threadPool.remove(self)
                 print(self.getName()+' exit')
                 return
-            # if task == self.getName():
-            #     with threadPoolLock: threadPool.remove(self)
-            #     print(self.getName()+' exit')
-            #     return
-            # if type(task) != type(()):
-            #     print('I am %s'%self.getName())
-            #     continue
             self.status = 'running'
             info = hostinfo.get(task[0])
             with processLock:process.append(task[0])
@@ -223,6 +237,7 @@ def idrac_control():
         if option not in ["ON","OFF","REBOOT"]:return {"msg":"error option"}
     except:
         return {"msg":"error"}
+
 
     print(bottle.request.json.get('id'))
     print(bottle.request.headers.get('Content-Type'))
