@@ -213,7 +213,7 @@ def init():
             print('Create directory %s ...' % Config.config['scripts_dir'])
             os.mkdir(Config.config['scripts_dir'])
         except Exception as e:
-            sys.stderr.write("Create %s failed!\nReason: %s\n" % (Config.config['scripts_dir'], str(e)))
+            sys.stdout.write("Create %s failed!\nReason: %s\n" % (Config.config['scripts_dir'], str(e)))
             sys.exit(1)
     else:
         print('Directory: %s already existed! Nothing to do.' % Config.config['scripts_dir'])
@@ -223,7 +223,7 @@ def init():
             print('Write config template into %s ...' % Config.config['config_file'])
             open(Config.config['config_file'], 'w').write(template)
         except Exception as e:
-            sys.stderr.write("mkdir: /usr/share/remotescripts/ failed!\nReason: %s\n" % str(e))
+            sys.stdout.write("mkdir: /usr/share/remotescripts/ failed!\nReason: %s\n" % str(e))
             sys.exit(1)
     else:
         print('Used config file: %s' % Config.config['config_file'])
@@ -235,8 +235,8 @@ class SSH(object):
         try:
             import paramiko
         except ImportError:
-            sys.stderr.write('Error! Module: paramiko is not found!\n')
-            sys.stderr.flush()
+            sys.stdout.write('Error! Module: paramiko is not found!\n')
+            sys.stdout.flush()
             sys.exit(2)
         self._ssh = paramiko.SSHClient()
         self.info = (hostname, port, username)
@@ -245,9 +245,9 @@ class SSH(object):
             self._ssh.connect(hostname=hostname, port=port, username=username,
                               password=password, timeout=timeout, auth_timeout=auth_timeout)
         except Exception as e:
-            sys.stderr.write('Error! Host {ip}: '.format(ip=hostname) + str(e) + '\n')
+            sys.stdout.write('Error! Host {ip}: '.format(ip=hostname) + str(e) + '\n')
             log.error('Host {ip}: '.format(ip=hostname) + str(e))
-            sys.stderr.flush()
+            sys.stdout.flush()
             sys.exit(2)
         self.sftp = self._ssh.open_sftp()
 
@@ -283,7 +283,7 @@ class SSH(object):
 
 def cmd(ssh, cf):
     if cf['append'] is None:
-        sys.stderr.write('You must privode -a or --append for cmd action! Use --help see more.\n')
+        sys.stdout.write('You must privode -a or --append for cmd action! Use --help see more.\n')
         sys.exit(1)
     if not cf['sep'] is None:
         cf['append'] = ' '.join(cf['append'].split(cf['sep']))
@@ -300,8 +300,8 @@ def cmd(ssh, cf):
                 result = ''.join(rst[1].readlines())
                 if err:
                     # print(err)
-                    sys.stderr.write(err)
-                    sys.stderr.flush()
+                    sys.stdout.write(err)
+                    sys.stdout.flush()
                 if result:
                     sys.stdout.write(result)
             else:
@@ -310,8 +310,8 @@ def cmd(ssh, cf):
                 err = ''.join(rst[2].readlines()[1:])
                 if err:
                     # print(err)
-                    sys.stderr.write(err)
-                    sys.stderr.flush()
+                    sys.stdout.write(err)
+                    sys.stdout.flush()
                 result = ''.join(rst[1].readlines()[1:])
                 if result:
                     sys.stdout.write(result)
@@ -332,8 +332,8 @@ def cmd(ssh, cf):
                 result = ''.join(rst[1].readlines())
                 if err:
                     # print(err)
-                    sys.stderr.write(err)
-                    sys.stderr.flush()
+                    sys.stdout.write(err)
+                    sys.stdout.flush()
                 if result:
                     sys.stdout.write(result)
             else:
@@ -341,7 +341,7 @@ def cmd(ssh, cf):
                     rst[0].write(cf['ssh_password'] + '\n')
                 err = ''.join(rst[2].readlines()[1:])
                 if err:
-                    sys.stderr.write(err)
+                    sys.stdout.write(err)
                 result = ''.join(rst[1].readlines()[1:])
                 if result:
                     sys.stdout.write(result)
@@ -358,7 +358,7 @@ def cmd(ssh, cf):
             sys.stdout.write('Warnning: Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             log.warning('Host {ip}: execute "{cmd}" timeout!\n'.format(ip=ssh.info[0], cmd=cf['append']))
             sys.exit(2)
-        if rst[1]: sys.stderr.write(rst[1])
+        if rst[1]: sys.stdout.write(rst[1])
         if rst[0]: sys.stdout.write(rst[0])
         log.info('Host {ip}: execute "{cmd}" successful!'.format(ip=ssh.info[0], cmd=cf['append']))
         return rst[2]
@@ -436,16 +436,16 @@ def get(ssh, cf):
 
 def script(ssh, cf):
     if not cf['script']:
-        sys.stderr.write("You must privode --script for script action! Use --help see more.\n")
-        sys.stderr.flush()
+        sys.stdout.write("You must privode --script for script action! Use --help see more.\n")
+        sys.stdout.flush()
         sys.exit(1)
     # if ssh.info[2] == 'root':
     #     homePath = '/root'
     # else:
     #     homePath = os.path.join('/home', ssh.info[2])
     if cf['script'][-1] == '/':
-        sys.stderr.write("Error: --script option, You should privode file path instead of directory path.\n")
-        sys.stderr.flush()
+        sys.stdout.write("Error: --script option, You should privode file path instead of directory path.\n")
+        sys.stdout.flush()
         sys.exit(2)
     if '/' in cf['script']:
         srcPath = cf['script']
@@ -465,7 +465,7 @@ def script(ssh, cf):
         try:
             ssh.sftp.mkdir(os.path.dirname(destPath))
         except PermissionError as e:
-            sys.stderr('Host: %s %s' % (ssh.info[0], str(e)))
+            sys.stdout('Host: %s %s' % (ssh.info[0], str(e)))
             sys.exit(2)
     cf['src'], cf['dest'] = srcPath, destPath
     if cf['append'] is None:
@@ -628,5 +628,5 @@ if __name__ == '__main__':
         print('Operation cancelled by user')
         exit(1)
     except Exception as e:
-        sys.stderr.write('Error! %s\n' % str(e))
+        sys.stdout.write('Error! %s\n' % str(e))
         exit(1)
