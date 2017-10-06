@@ -43,8 +43,7 @@ import urllib3;urllib3.disable_warnings()
 
 
 def execute(x,ip='127.0.0.1',db='ywdb',user='root',passwd='123456',charset='utf8',port=3306):
-    import pymysql
-    with pymysql.connect(host=ip,user=user,passwd=passwd,db=db,charset=charset,port=port) as f:f.execute(x);list(map(lambda x:print(x),f.fetchall()))
+    with __import__('pymysql').connect(host=ip,user=user,passwd=passwd,db=db,charset=charset,port=port) as f:f.execute(x);list(map(lambda x:print(x),f.fetchall()))
 
 
 
