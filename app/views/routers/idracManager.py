@@ -4,13 +4,19 @@
 
 from __future__ import absolute_import, print_function
 
+__version__ = '1.0.0'
+__author__ = '魏云飞'
+
+
 import os
 import sys
 import pwd
 import time
+import json
 import queue
 import socket
 import signal
+import getopt
 import threading
 import multiprocessing
 
@@ -84,6 +90,7 @@ class HandlerProcess(multiprocessing.Process):
                         HandlerProcess.threadPool.remove(self)
                     return
                 self.status = 'running'
+                # 开始实际的操作
 
     def run(self):
         setproctitle.setproctitle('idrac: Handler Process')
@@ -109,32 +116,6 @@ class WebManageProcess(multiprocessing.Process):
     def __init__(self):
         multiprocessing.Process.__init__(self)
         self.daemon = True
-
-    @staticmethod
-    def database():
-        dbConfig = {
-            "host": "127.0.0.1",
-            "user": "root",
-            "passwd": "123456",
-            "db": "ywdb",
-            "port": 3306,
-            "charset": "utf8",
-            "autocommit": True
-        }
-
-        class fieldMap(object):
-            # 表名
-            table = 'ywdb.devices'
-            # 下面是字段映射
-            id = 'id'  # 主键
-            hostip = 'ip_address'  # 主机IP
-            ipmiip = 'ipmi_address'  # IPMI接口IP
-            ipmiUser = 'ipmi_account'  # IDRAC登陆用户
-            ipmiPass = 'ipmi_passwd'  # IDRAC登陆密码
-            status = 'status'  # 0-OFF  1-ON  2-REBOOT  3-NULL
-            position = 'position'  # 所在机房位置
-            # select限制
-            limit = {'position': '北京'}
 
     @staticmethod
     def webapi():
@@ -167,7 +148,36 @@ class WebManageProcess(multiprocessing.Process):
         server.serve_forever()
 
 
-def main():
+def usage():
+    print("戴尔远程管理卡命令行工具\n"
+            "\n"
+            "    -v                  显示版本\n"
+            "    -h                  显示此帮助\n"
+            "\n"
+            "    后端模式运行程序\n"
+            "    -d                  守护进程模式 如果没有此参数 将在前台运行\n"
+            "    -c                  指定配置文件路径\n"
+            "    --config-template   生成配置文件模板\n"
+            "\n"
+            "    命令行方式运行程序\n"
+            "    -i                  IDRAC地址\n"
+            "    -u                  IDRAC登陆用户\n"
+            "    -p                  IDRAC用户密码\n"
+            "    -a                  所要执行的操作 仅支持 on/off/reboot/status  [开机/关机/重启/状态]\n"
+            "    -t                  等待超时 超时后将自动停止进程\n")
+    sys.exit(255)
+
+
+
+def daemon(config):
+    setproctitle.setproctitle('idrac: Communication Process')
+    os.setegid(pwd.getpwnam('nobody').pw_gid)
+    os.seteuid(pwd.getpwnam('nobody').pw_uid)
+    man = multiprocessing.Manager()
+    # {'id':{'ip':'127.0.0.1','username':'root','password':'calvin','hostip':'127.0.0.1'}}
+    hostinfo = man.dict()
+    tasks = man.list()
+    tasksLock = man.Lock()
     # 初始化处理进程和web管理进程
     setproctitle.setproctitle('idrac: Daemon Process')
     HandlerProcess.hostinfo = hostinfo
@@ -188,6 +198,7 @@ def main():
         del sig_num, addtion
         H.terminate()
         W.terminate()
+        print('IDRAC Manager Exit...')
 
     signal.signal(signal.SIGTERM, killsubprocess)
 
@@ -195,24 +206,138 @@ def main():
     H.join()
     W.join()
 
+def optparse():
+    CONFIG = {
+        "daemon": {
+            "threads": 10,
+        },
+        "web":{
+            "listen":"0.0.0.0",
+            "port": 8080
+        },
+        "mysql":{
+            "host": "127.0.0.1",
+            "port": 3306,
+            "user": "root",
+            "passwd": "123456",
+            "db": "ywdb",
+            "charset": "utf8",
+            "autocommit": True
+        },
+        "table":{
+            "name": "devices",
+            "fieldmap": {
+                "id": "id",
+                "hostip": "ip_address",
+                "ipmiip": "ipmi_address",
+                "ipmiuser": "ipmi_account",
+                "ipmipass": "ipmi_passwd",
+                "status": "status",
+                "position": "position",
+            },
+            "limit": {
+                "position": "北京"
+            }
+        }
+    }
+    ipmiinfo = {
+        'ip': None,
+        'username': 'root',
+        'password': 'calvin',
+    }
+
+    power = {
+        'POWER_OFF': 'off',
+        'POWER_ON' : 'on',
+        'REBOOT'   : 'reboot'
+    }
+
+    try:
+        options = getopt.getopt(sys.argv[1:], 'vhdc:i:u:p:a:t:', ['config-template'])
+    except getopt.GetoptError as e:
+        print(str(e) + '. Use -h see more.')
+        sys.exit(255)
+    if not options[0] and not options[1]:
+        usage()
+
+    def hasops(ops):
+        return dict(options[0]).get(ops,False)
+
+    for name,value in options[0]:
+        if name == '-h':
+            usage()
+        if name == '-v':
+            print('版本: '+__version__)
+            print('作者: '+__author__)
+            sys.exit(0)
+        if name == '--config-template':
+            print(json.dumps(CONFIG,indent=4))
+            print()
+            sys.stderr.write('注意：daemon中threads的值为启动时开启的工作线程 批量开关机中 工作线程越多 并发越大\n')
+            sys.exit(0)
+        if name == '-c':
+            if hasops('-d') == '':
+                pid = os.fork()
+                if pid != 0:sys.exit(0)
+            CONFIG = json.load(open(value))
+            daemon(CONFIG)
+        if name == '-i':
+            if not hasops('-a'):
+                print('必须使用 -a 指定要进行的操作: on/off/reboot')
+                sys.exit(2)
+            ipmiinfo['ip'] = value;continue
+        if name == '-u':
+            if not hasops('-i'):
+                print('必须使用 -i 指定IDRAC的IP地址')
+                sys.exit(2)
+            ipmiinfo['username'] = value;continue
+        if name == '-p':
+            if not hasops('-i'):
+                print('必须使用 -i 指定IDRAC的IP地址')
+                sys.exit(2)
+            ipmiinfo['password'] = value;continue
+        if name == '-a':
+            if hasops('-t'):
+                def kill(timeout):
+                    time.sleep(timeout)
+                    print('等待超时 程序正在退出...')
+                    # 发送SIGINT信号 相当于Ctrl+C
+                    os.kill(os.getpid(),2)
+                    time.sleep(0.1)
+                threading.Thread(target=kill,args=(int(hasops('-t')),),daemon=True).start()
+            cli = HandlerProcess.idrac(**ipmiinfo)
+            # if not cli.ping():
+            #     print("IDRAC: %s 无法连接" % ipmiinfo['ip'])
+            #     sys.exit(1)
+            if value.lower() == 'on':
+                if cli.setPowerState('POWER_ON'):
+                    print('IDRAC: %s      on  \033[32msuccess\033[0m' % ipmiinfo['ip'].ljust(15))
+                else:
+                    print('IDRAC: %s      on  \033[31mfailed\033[0m' % ipmiinfo['ip'].ljust(15))
+            elif value.lower() == 'off':
+                if cli.setPowerState('POWER_OFF'):
+                    print('IDRAC: %s      off  \033[32msuccess\033[0m' % ipmiinfo['ip'].ljust(15))
+                else:
+                    print('IDRAC: %s      off  \033[31mfailed\033[0m' % ipmiinfo['ip'].ljust(15))
+            elif value.lower() == 'reboot':
+                if cli.setPowerState('REBOOT'):
+                    print('IDRAC: %s      reboot  \033[32msuccess\033[0m' % ipmiinfo['ip'].ljust(15))
+                else:
+                    print('IDRAC: %s      reboot  \033[31mfailed\033[0m' % ipmiinfo['ip'].ljust(15))
+            elif value.lower() == 'status':
+                print('IDRAC: %s   %s'%(ipmiinfo['ip'].ljust(15),power.get(cli.getPowerState())))
+            else:
+                print('无效的操作: %s' % value)
+                sys.exit(1)
+
+
+
 
 if __name__ == '__main__':
     try:
-        if sys.argv[1] == 'daemon':
-            pid = os.fork()
-            if pid != 0: sys.exit(0)
-    except IndexError:
-        pass
-    setproctitle.setproctitle('idrac: Communication Process')
-    os.setegid(pwd.getpwnam('nobody').pw_gid)
-    os.seteuid(pwd.getpwnam('nobody').pw_uid)
-    man = multiprocessing.Manager()
-    # {'id':{'ip':'127.0.0.1','username':'root','password':'calvin','hostip':'127.0.0.1'}}
-    hostinfo = man.dict()
-    tasks = man.list()
-    tasksLock = man.Lock()
-    try:
-        main()
+        optparse()
     except KeyboardInterrupt:
-        print('Operation cancelled by user')
-        sys.exit(0)
+        os.kill(os.getpid(),15)
+    except Exception as e:
+        print(str(e))
+        sys.exit(1)
