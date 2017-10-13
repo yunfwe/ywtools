@@ -257,9 +257,6 @@ def views(tasks):
             ids = bottle.request.json.get('id')
             option = bottle.request.json.get('option')
             if option not in ["ON","OFF","REBOOT"]:return {"msg":"error option"}
-            # with tasksLock:
-            #     for id in set(ids):
-            #         tasks.append((str(id),option))
             for id in set(ids):
                 tasks.put((str(id),option))
             return {"status":"ok","msg":"ok"}
