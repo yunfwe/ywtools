@@ -36,6 +36,7 @@ class HandlerProcess(multiprocessing.Process):
     tasks = []
     tasksLock = None
     taskQueue = queue.Queue()
+    config = None
 
     def __init__(self):
         multiprocessing.Process.__init__(self)
@@ -49,6 +50,7 @@ class HandlerProcess(multiprocessing.Process):
         def ping(self):
             # 如果对端443端口不能连接就不用继续进行了
             s = socket.socket()
+            s.settimeout(1)
             if s.connect_ex((self.ip, 443)) == 0:
                 return True
             return False
@@ -56,8 +58,8 @@ class HandlerProcess(multiprocessing.Process):
         def getPowerState(self):
             try:
                 return self.client.get_power_state()
-            except Exception as e:
-                print(str(e))
+            except:
+                # print(str(e))
                 return False
 
         def setPowerState(self, state):
@@ -68,6 +70,17 @@ class HandlerProcess(multiprocessing.Process):
                     return False
             except:
                 return False
+
+    @staticmethod
+    def dbupdate(id_, status):
+        table = HandlerProcess.config['table']['name']
+        field = HandlerProcess.config['table']['fieldmap']['status']
+        idf = HandlerProcess.config['table']['fieldmap']['id']
+        with pymysql.connect(**HandlerProcess.config['mysql']) as db:
+            sql = '''update {table} set {field}="{status}" where {idf}="{i}"'''.format(
+                table=table,field=field,status=status,idf=idf,i=id_
+            )
+            db.execute(sql)
 
     class HandlerThread(threading.Thread):
         def __init__(self):
@@ -83,20 +96,40 @@ class HandlerProcess(multiprocessing.Process):
                 self.status = 'pendding'
                 self.setName(self.ThreadName)
                 task = HandlerProcess.taskQueue.get()
-                print(self.ThreadName + task)
                 if task == 'stop':
                     print('exit...')
                     with HandlerProcess.threadPoolLock:
                         HandlerProcess.threadPool.remove(self)
                     return
+
+                info = HandlerProcess.hostinfo.get(task[0])
+                if info is None:continue
+                self.setName('Handler Thread (%s)' % info['hostip'])
+                print(self.name)
                 self.status = 'running'
                 # 开始实际的操作
+                cli = HandlerProcess.idrac(info['ipmiip'],info['username'],info['password'])
+                if not cli.ping():
+                    continue
+                if task[1] == 'on':
+                    if cli.setPowerState('POWER_ON'):
+                        HandlerProcess.dbupdate(task[0],'on')
+                    else:continue
+                if task[1] == 'off':
+                    if cli.setPowerState('POWER_OFF'):
+                        HandlerProcess.dbupdate(task[0],'off')
+                    else:continue
+                if task[1] == 'reboot':
+                    if cli.setPowerState('REBOOT'):
+                        HandlerProcess.dbupdate(task[0],'on')
+                    else:continue
+
 
     def run(self):
         setproctitle.setproctitle('idrac: Handler Process')
-        os.setegid(pwd.getpwnam('nobody').pw_gid)
-        os.seteuid(pwd.getpwnam('nobody').pw_uid)
-        for i in range(10):
+        os.setegid(pwd.getpwnam(HandlerProcess.config['daemon']['group']).pw_gid)
+        os.seteuid(pwd.getpwnam(HandlerProcess.config['daemon']['user']).pw_uid)
+        for i in range(int(HandlerProcess.config['daemon']['threads'])):
             HandlerProcess.HandlerThread().start()
         while True:
             with HandlerProcess.tasksLock:
@@ -112,10 +145,37 @@ class WebManageProcess(multiprocessing.Process):
     hostinfo = {}
     tasks = []
     tasksLock = None
+    config = None
 
     def __init__(self):
         multiprocessing.Process.__init__(self)
         self.daemon = True
+
+    @staticmethod
+    def sqlparse():
+        val = WebManageProcess.config['table']['fieldmap']
+        field = ','.join([
+            val['id'],val['hostip'], val['ipmiip'],
+            val['ipmiuser'], val['ipmipass'], val['status'],val['position']
+        ])
+        table = WebManageProcess.config['table']['name']
+        def limitparse():
+            _limit = WebManageProcess.config['table'].get('limit')
+            limits = ''
+            if not _limit: return ''
+            _tmp = []
+            for k,v in _limit.items():
+                if type(v) == str:
+                    v = '"'+v+'"'
+                else: v = str(v)
+                _tmp.append(k+'='+v)
+            if not _tmp:limits = ''
+            if len(_tmp) == 1: limits = ' where '+_tmp[0]
+            if len(_tmp) > 1: limits = ' where '+ ' and '.join(_tmp)
+            return limits
+        limit = limitparse()
+        sql = 'select '+field+' from '+table+limit
+        return sql
 
     @staticmethod
     def webapi():
@@ -126,25 +186,136 @@ class WebManageProcess(multiprocessing.Process):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Method', '*')
 
-        @app.route('/put/<name>')
-        def put(name):
-            yield 'wait...\n'
-            time.sleep(3)
-            with WebManageProcess.tasksLock:
-                WebManageProcess.tasks.append(name)
-            time.sleep(3)
-            yield 'done...\n'
+
+        @app.route('/idrac/show/<id_>',method=['POST','GET'])
+        def idrac_status(id_):
+            if id_ == 'all':
+                hostinfo = {}
+                with pymysql.connect(**WebManageProcess.config['mysql']) as db:
+                    for i in range(db.execute(WebManageProcess.sqlparse())):
+                        line = db.fetchone()
+                        if not line[2]:continue
+                        WebManageProcess.hostinfo[str(line[0])] = {'hostip':line[1],'ipmiip':line[2],'username':line[3],
+                                                    'password':line[4],'status':line[5],'position':line[6]}
+                        hostinfo[str(line[0])] = {'hostip':line[1],'ipmiip':line[2],'status':line[5],'position':line[6]}
+                return json.dumps(hostinfo, ensure_ascii=False)
+            else:
+                sql = WebManageProcess.sqlparse()
+                if 'where' in sql:
+                    sql = sql+' and id='+id_
+                else:
+                    sql = sql+' where id='+id_
+                with pymysql.connect(**WebManageProcess.config['mysql']) as db:
+                    l = db.execute(sql)
+                    if l == 1:
+                        line = db.fetchone()
+                        return json.dumps({'hostip':line[1],'ipmiip':line[2],'status':line[5],
+                                           'position':line[6]},ensure_ascii=False)
+                    else:
+                        return {}
+        if not WebManageProcess.hostinfo:idrac_status('all')
+
+
+        @app.route('/idrac/control/async', method=['POST'])
+        def idrac_control_async():
+            # {"id":[1,2,3,4],"action":"on"}
+            try:
+                ids = bottle.request.json.get('id')
+                action = bottle.request.json.get('action').lower()
+                if action not in ["on","off","reboot"]:return {"msg":"error action"}
+                with WebManageProcess.tasksLock:
+                    for id_ in set(ids):
+                        WebManageProcess.tasks.append((str(id_),action))
+                return {"status":"ok"}
+            except Exception as e:
+                return {"status":"err","msg":str(e)}
+
+
+        @app.route('/idrac/control/sync', method=['POST'])
+        def idrac_control_sync():
+            # {"id":1,"action":"on"}
+            try:
+                _id = str(bottle.request.json.get('id'))
+                action = bottle.request.json.get('action').lower()
+                if action not in ["on","off","reboot"]:return {"status":"err","msg":"error action"}
+                info = WebManageProcess.hostinfo.get(_id)
+                if info is None:return {"status":"err","msg":"host not found"}
+                cli = HandlerProcess.idrac(ip=info['ipmiip'],username=info['username'],password=info['password'])
+                if not cli.ping():return {"status":"err","msg":"connect error"}
+                if action == 'on':
+                    if cli.setPowerState('POWER_ON'):
+                        HandlerProcess.dbupdate(_id,'on')
+                        return {"status":"ok"}
+                    return {"status":"err","msg":"on failed"}
+                if action == 'off':
+                    if cli.setPowerState('POWER_OFF'):
+                        HandlerProcess.dbupdate(_id,'off')
+                        return {"status":"ok"}
+                    return {"status":"err","msg":"off failed"}
+                if action == 'reboot':
+                    if cli.setPowerState('REBOOT'):
+                        HandlerProcess.dbupdate(_id,'on')
+                        return {"status":"ok"}
+                    return {"status":"err","msg":"reboot failed"}
+            except Exception as e:
+                return {"status":"err","msg":str(e)}
+
+        @app.route('/idrac/<action>/<ip>',method=['GET'])
+        def simple_control(action,ip):
+            try:
+                if action not in ["on","off","reboot","status"]: return "仅支持 on/off/reboot/status 操作\n"
+                val = WebManageProcess.config['table']['fieldmap']
+                field = ','.join([val['id'], val['ipmiip'], val['ipmiuser'], val['ipmipass']])
+                table = WebManageProcess.config['table']['name']
+                info = None
+                with pymysql.connect(**WebManageProcess.config['mysql']) as db:
+                    sql = 'select {field} from {table} where {host}="{ip}"'.format(
+                        field=field, table=table, host=val['hostip'], ip=ip)
+                    line = db.execute(sql)
+                    if line != 1:
+                        return "IP地址查询有误 请检查数据库是否存在此IP 或者此IP记录是否只有一条\n"
+                    info = db.fetchone()
+                _id = info[0]
+                cli = HandlerProcess.idrac(ip=info[1],username=info[2],password=info[3])
+                if not cli.ping():return "连接此IDRAC失败\n"
+                if action == 'on':
+                    if cli.setPowerState('POWER_ON'):
+                        HandlerProcess.dbupdate(_id,'on')
+                        return "主机：%s 启动成功\n" % ip
+                    return "主机：%s 启动失败\n" % ip
+                if action == 'off':
+                    if cli.setPowerState('POWER_OFF'):
+                        HandlerProcess.dbupdate(_id,'off')
+                        return "主机：%s 关闭成功\n" % ip
+                    return "主机：%s 关闭失败\n" % ip
+                if action == 'reboot':
+                    if cli.setPowerState('REBOOT'):
+                        HandlerProcess.dbupdate(_id,'on')
+                        return "主机：%s 重启成功\n" % ip
+                    return "主机：%s 重启失败\n" % ip
+                if action == 'status':
+                    status = cli.getPowerState()
+                    if not status:
+                        if status == "POWER_ON": return "启动状态\n"
+                        if status == "POWER_OFF": return "关闭状态\n"
+                        if status == "REBOOT": return "正在重启\n"
+                    return "状态获取失败\n"
+            except Exception as e:
+                return "抱歉 服务端出错了\n详情: "+str(e)
+
 
         return app
 
     def run(self):
         setproctitle.setproctitle('idrac: Web Manage Process')
-        os.setegid(pwd.getpwnam('nobody').pw_gid)
-        os.seteuid(pwd.getpwnam('nobody').pw_uid)
+        os.setegid(pwd.getpwnam(WebManageProcess.config['daemon']['group']).pw_gid)
+        os.seteuid(pwd.getpwnam(WebManageProcess.config['daemon']['user']).pw_uid)
         from gevent import monkey;monkey.patch_all(socket=False)
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
-        server = WSGIServer(("0.0.0.0", 8080), application=WebManageProcess.webapi(), handler_class=WebSocketHandler)
+        bind = (WebManageProcess.config['web']['listen'],WebManageProcess.config['web']['port'])
+        server = WSGIServer(bind, application=WebManageProcess.webapi(), handler_class=WebSocketHandler)
+        print('Server listen on %s:%s ...' % bind)
         server.serve_forever()
 
 
@@ -171,8 +342,8 @@ def usage():
 
 def daemon(config):
     setproctitle.setproctitle('idrac: Communication Process')
-    os.setegid(pwd.getpwnam('nobody').pw_gid)
-    os.seteuid(pwd.getpwnam('nobody').pw_uid)
+    os.setegid(pwd.getpwnam(config['daemon']['group']).pw_gid)
+    os.seteuid(pwd.getpwnam(config['daemon']['user']).pw_uid)
     man = multiprocessing.Manager()
     # {'id':{'ip':'127.0.0.1','username':'root','password':'calvin','hostip':'127.0.0.1'}}
     hostinfo = man.dict()
@@ -183,10 +354,12 @@ def daemon(config):
     HandlerProcess.hostinfo = hostinfo
     HandlerProcess.tasks = tasks
     HandlerProcess.tasksLock = tasksLock
+    HandlerProcess.config = config
     H = HandlerProcess()
     WebManageProcess.hostinfo = hostinfo
     WebManageProcess.tasks = tasks
     WebManageProcess.tasksLock = tasksLock
+    WebManageProcess.config = config
     W = WebManageProcess()
 
     # 启动这两个进程
@@ -210,10 +383,12 @@ def optparse():
     CONFIG = {
         "daemon": {
             "threads": 10,
+            "user": "nobody",
+            "group": "nobody"
         },
         "web":{
             "listen":"0.0.0.0",
-            "port": 8080
+            "port": 11190
         },
         "mysql":{
             "host": "127.0.0.1",
@@ -271,7 +446,7 @@ def optparse():
             print('作者: '+__author__)
             sys.exit(0)
         if name == '--config-template':
-            print(json.dumps(CONFIG,indent=4))
+            print(json.dumps(CONFIG,indent=4, ensure_ascii=False))
             print()
             sys.stderr.write('注意：daemon中threads的值为启动时开启的工作线程 批量开关机中 工作线程越多 并发越大\n')
             sys.exit(0)
@@ -306,9 +481,9 @@ def optparse():
                     time.sleep(0.1)
                 threading.Thread(target=kill,args=(int(hasops('-t')),),daemon=True).start()
             cli = HandlerProcess.idrac(**ipmiinfo)
-            # if not cli.ping():
-            #     print("IDRAC: %s 无法连接" % ipmiinfo['ip'])
-            #     sys.exit(1)
+            if not cli.ping():
+                print("IDRAC: %s 无法连接" % ipmiinfo['ip'])
+                sys.exit(1)
             if value.lower() == 'on':
                 if cli.setPowerState('POWER_ON'):
                     print('IDRAC: %s      on  \033[32msuccess\033[0m' % ipmiinfo['ip'].ljust(15))
@@ -329,8 +504,6 @@ def optparse():
             else:
                 print('无效的操作: %s' % value)
                 sys.exit(1)
-
-
 
 
 if __name__ == '__main__':

@@ -251,7 +251,7 @@ def views(tasks):
             "id":[1,2,3,4],
             "option":"ON"
         }
-        :return: 
+        :return:
         """
         try:
             ids = bottle.request.json.get('id')
