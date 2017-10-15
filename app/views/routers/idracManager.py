@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # author: weiyunfei  date: 2017-10-11
 
-from __future__ import absolute_import, print_function
+# from __future__ import absolute_import, print_function
 
 __version__ = '1.0.0'
 __author__ = '魏云飞'
@@ -313,22 +313,22 @@ class WebManageProcess(multiprocessing.Process):
         def simple_control(action, ip):
             """
             对用户友好的接口 可以直接使用浏览器或者curl等工具访问
-            没有机房区域限制
+            不应用配置文件中的limit
             """
             try:
                 if action not in ["on", "off", "reboot", "status"]: return "仅支持 on/off/reboot/status 操作\n"
                 val = WebManageProcess.config['table']['fieldmap']
                 field = ','.join([val['id'], val['ipmiip'], val['ipmiuser'], val['ipmipass']])
                 table = WebManageProcess.config['table']['name']
-                info = None
+                # info = None
+                sql = 'select {field} from {table} where {host}="{ip}"'.format(
+                    field=field, table=table, host=val['hostip'], ip=ip)
                 with pymysql.connect(**WebManageProcess.config['mysql']) as db:
-                    sql = 'select {field} from {table} where {host}="{ip}"'.format(
-                        field=field, table=table, host=val['hostip'], ip=ip)
                     line = db.execute(sql)
                     if line != 1:
                         return "IP地址查询有误 请检查数据库是否存在此IP 或者此IP记录是否只有一条\n"
                     info = db.fetchone()
-                _id = info[0]
+                _id = str(info[0])
                 cli = HandlerProcess.idrac(ip=info[1], username=info[2], password=info[3])
                 if not cli.ping(): return "连接此IDRAC失败\n"
                 if action == 'on':
@@ -513,19 +513,19 @@ def optparse():
             if not hasops('-a'):
                 print('必须使用 -a 指定要进行的操作: on/off/reboot')
                 sys.exit(2)
-            ipmiinfo['ip'] = value;
+            ipmiinfo['ip'] = value
             continue
         if name == '-u':
             if not hasops('-i'):
                 print('必须使用 -i 指定IDRAC的IP地址')
                 sys.exit(2)
-            ipmiinfo['username'] = value;
+            ipmiinfo['username'] = value
             continue
         if name == '-p':
             if not hasops('-i'):
                 print('必须使用 -i 指定IDRAC的IP地址')
                 sys.exit(2)
-            ipmiinfo['password'] = value;
+            ipmiinfo['password'] = value
             continue
         if name == '-a':
             if hasops('-t'):
