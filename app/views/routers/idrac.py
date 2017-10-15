@@ -311,7 +311,7 @@ def views(tasks):
 
 
     def start():
-        from gevent import monkey;monkey.patch_all()
+        from gevent import monkey;monkey.patch_all(socket=False)
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
         server = WSGIServer(("0.0.0.0", 8080), application=app, handler_class=WebSocketHandler)

@@ -58,8 +58,8 @@ class HandlerProcess(multiprocessing.Process):
         def getPowerState(self):
             try:
                 return self.client.get_power_state()
-            except:
-                # print(str(e))
+            except Exception as e:
+                print(str(e))
                 return False
 
         def setPowerState(self, state):
@@ -68,7 +68,8 @@ class HandlerProcess(multiprocessing.Process):
                     return True
                 else:
                     return False
-            except:
+            except Exception as e:
+                print(str(e))
                 return False
 
     @staticmethod
@@ -186,8 +187,17 @@ class WebManageProcess(multiprocessing.Process):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Method', '*')
 
+        loop = list(range(1000))
+        @app.route('/loop')
+        def _loop():
+            while True:
+                time.sleep(1)
+                try:
+                    yield str(loop.pop())+'\n'
+                except IndexError:
+                    return 'done\n'
 
-        @app.route('/idrac/show/<id_>',method=['POST','GET'])
+        @app.route('/idrac/info/<id_>',method=['GET'])
         def idrac_status(id_):
             if id_ == 'all':
                 hostinfo = {}
@@ -216,7 +226,7 @@ class WebManageProcess(multiprocessing.Process):
         if not WebManageProcess.hostinfo:idrac_status('all')
 
 
-        @app.route('/idrac/control/async', method=['POST'])
+        @app.route('/idrac/control', method=['POST'])
         def idrac_control_async():
             # {"id":[1,2,3,4],"action":"on"}
             try:
@@ -237,7 +247,7 @@ class WebManageProcess(multiprocessing.Process):
             try:
                 _id = str(bottle.request.json.get('id'))
                 action = bottle.request.json.get('action').lower()
-                if action not in ["on","off","reboot"]:return {"status":"err","msg":"error action"}
+                if action not in ["on","off","reboot","status"]:return {"status":"err","msg":"error action"}
                 info = WebManageProcess.hostinfo.get(_id)
                 if info is None:return {"status":"err","msg":"host not found"}
                 cli = HandlerProcess.idrac(ip=info['ipmiip'],username=info['username'],password=info['password'])
@@ -257,6 +267,12 @@ class WebManageProcess(multiprocessing.Process):
                         HandlerProcess.dbupdate(_id,'on')
                         return {"status":"ok"}
                     return {"status":"err","msg":"reboot failed"}
+                if action == 'status':
+                    status = cli.getPowerState()
+                    if not status: return {"status":"err","msg":"cannot get status"}
+                    if status == "POWER_ON": return {"status":"on"}
+                    if status == "POWER_OFF": return {"status":"off"}
+                    if status == "REBOOT": return {"status":"reboot"}
             except Exception as e:
                 return {"status":"err","msg":str(e)}
 
@@ -295,13 +311,12 @@ class WebManageProcess(multiprocessing.Process):
                     return "主机：%s 重启失败\n" % ip
                 if action == 'status':
                     status = cli.getPowerState()
-                    if not status:
-                        if status == "POWER_ON": return "启动状态\n"
-                        if status == "POWER_OFF": return "关闭状态\n"
-                        if status == "REBOOT": return "正在重启\n"
-                    return "状态获取失败\n"
+                    if not status: return "状态获取失败\n"
+                    if status == "POWER_ON": return "主机：%s 已开机\n" % ip
+                    if status == "POWER_OFF": return "主机：%s 已关机\n" % ip
+                    if status == "REBOOT": return "主机：%s 正在重启\n" % ip
             except Exception as e:
-                return "抱歉 服务端出错了\n详情: "+str(e)
+                return "抱歉 服务端出错了\n详情: "+str(e)+'\n'
 
 
         return app
@@ -310,11 +325,13 @@ class WebManageProcess(multiprocessing.Process):
         setproctitle.setproctitle('idrac: Web Manage Process')
         os.setegid(pwd.getpwnam(WebManageProcess.config['daemon']['group']).pw_gid)
         os.seteuid(pwd.getpwnam(WebManageProcess.config['daemon']['user']).pw_uid)
-        from gevent import monkey;monkey.patch_all(socket=False)
+        # from gevent import monkey;monkey.patch_all(socket=False, ssl=False)
+        from gevent import monkey;monkey.patch_time()
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
         bind = (WebManageProcess.config['web']['listen'],WebManageProcess.config['web']['port'])
-        server = WSGIServer(bind, application=WebManageProcess.webapi(), handler_class=WebSocketHandler)
+        app = WebManageProcess.webapi()
+        server = WSGIServer(bind, application=app, handler_class=WebSocketHandler)
         print('Server listen on %s:%s ...' % bind)
         server.serve_forever()
 
