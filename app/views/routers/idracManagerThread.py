@@ -266,6 +266,13 @@ class WebManageProcess(object):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Method', '*')
 
+
+        @app.route('/thread/list')
+        def thread_list():
+            for i in HandlerProcess.threadPool:
+                yield i.name
+
+
         loop = list(range(1000))
         @app.route('/loop')
         def _loop():
