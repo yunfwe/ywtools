@@ -209,9 +209,10 @@ class HandlerProcess(object):
 
     @staticmethod
     def run():
+        HandlerProcess.TasksManagerThread().start()
         for i in range(int(share.config['daemon']['threads'])):
             HandlerProcess.HandlerThread().start()
-        HandlerProcess.TasksManagerThread().start()
+
 
 class WebManageProcess(object):
     def __init__(self):
@@ -270,8 +271,34 @@ class WebManageProcess(object):
         @app.route('/thread/list')
         def thread_list():
             for i in HandlerProcess.threadPool:
-                yield i.name
+                yield i.name+'\t\t('+i.status+')\n'
 
+        @app.route('/thread/add/<num>')
+        def thread_add(num):
+            for i in range(int(num)):
+                HandlerProcess.HandlerThread().start()
+
+        @app.route('/thread/stop/<num>')
+        def thread_stop(num):
+            threadnum = len(HandlerProcess.threadPool)-1
+            if num == 'all':
+                num = threadnum
+            num = int(num)
+            if num > threadnum:
+                num = threadnum
+            for i in range(num):
+                with share.tasksLock:
+                    share.tasks.append('stop')
+
+        @app.route('/result/show')
+        def result_show():
+            with share.resultLock:
+                return share.result
+
+        @app.route('/result/clean')
+        def result_clean():
+            with share.resultLock:
+                share.result = {}
 
         loop = list(range(1000))
         @app.route('/loop')
