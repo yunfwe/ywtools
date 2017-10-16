@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
-# author: weiyunfei  date: 2017-10-11
+# author: weiyunfei  date: 2017-10-16
 
 # from __future__ import absolute_import, print_function
 
-__version__ = '1.0.0'
+__version__ = '2.0.0'
 __author__ = '魏云飞'
+
 
 import os
 import sys
@@ -13,11 +14,12 @@ import pwd
 import time
 import json
 import queue
+import random
 import socket
 import signal
 import getopt
+import logging
 import threading
-import multiprocessing
 
 import bottle
 import pymysql
@@ -28,23 +30,29 @@ import urllib3
 urllib3.disable_warnings()
 
 
-class HandlerProcess(multiprocessing.Process):
-    threadPool = []
-    threadPoolLock = threading.Lock()
+
+class share(object):
     hostinfo = {}
     tasks = []
-    tasksLock = None
-    taskQueue = queue.Queue()
+    tasksLock = threading.Lock()
+    result = {}
+    resultLock = threading.Lock()
     config = None
 
+
+class HandlerProcess(object):
+    taskQueue = queue.Queue()
+    threadPool = []
+    threadPoolLock = threading.Lock()
+
     def __init__(self):
-        multiprocessing.Process.__init__(self)
         self.daemon = True
 
     class idrac(object):
         def __init__(self, ip, username, password):
             self.ip, self.username, self.password = ip, username, password
-            self.client = dracclient.client.DRACClient(ip, username, password)
+            self.client = dracclient.client.DRACClient(ip, username, password,
+                ssl_retries=2,ready_retries=2,ready_retry_delay=1)
 
         def ping(self):
             # 如果对端443端口不能连接就不用继续进行了
@@ -58,7 +66,7 @@ class HandlerProcess(multiprocessing.Process):
             try:
                 return self.client.get_power_state()
             except Exception as e:
-                print(str(e))
+                # print(str(e))
                 return False
 
         def setPowerState(self, state):
@@ -68,15 +76,15 @@ class HandlerProcess(multiprocessing.Process):
                 else:
                     return False
             except Exception as e:
-                print(str(e))
+                # print(str(e))
                 return False
 
     @staticmethod
     def dbupdate(id_, status):
-        table = HandlerProcess.config['table']['name']
-        field = HandlerProcess.config['table']['fieldmap']['status']
-        idf = HandlerProcess.config['table']['fieldmap']['id']
-        with pymysql.connect(**HandlerProcess.config['mysql']) as db:
+        table = share.config['table']['name']
+        field = share.config['table']['fieldmap']['status']
+        idf = share.config['table']['fieldmap']['id']
+        with pymysql.connect(**share.config['mysql']) as db:
             sql = '''update {table} set {field}="{status}" where {idf}="{i}"'''.format(
                 table=table, field=field, status=status, idf=idf, i=id_
             )
@@ -85,6 +93,7 @@ class HandlerProcess(multiprocessing.Process):
     class HandlerThread(threading.Thread):
         def __init__(self):
             threading.Thread.__init__(self)
+            self.daemon = True
             self.status = 'start'
             self.setName('Handler ' + self.getName())
             self.ThreadName = self.getName()
@@ -97,73 +106,137 @@ class HandlerProcess(multiprocessing.Process):
                 self.setName(self.ThreadName)
                 task = HandlerProcess.taskQueue.get()
                 if task == 'stop':
-                    print('exit...')
+                    # print('exit...')
                     with HandlerProcess.threadPoolLock:
                         HandlerProcess.threadPool.remove(self)
                     return
-
-                info = HandlerProcess.hostinfo.get(task[0])
-                if info is None: continue
+                with share.resultLock:
+                    share.result[task[2]] = {"status":"running","result":None}
+                info = share.hostinfo.get(task[0])
+                # print(task)
+                if info is None:
+                    with share.resultLock:
+                        share.result[task[2]] = {"status":"stopped","result":"host not fonud"}
+                        logging.error('ID: %s host not fonud' % task[0])
+                    continue
                 self.setName('Handler Thread (%s)' % info['hostip'])
-                print(self.name)
+                # print(self.name)
                 self.status = 'running'
                 # 开始实际的操作
                 cli = HandlerProcess.idrac(info['ipmiip'], info['username'], info['password'])
                 if not cli.ping():
+                    with share.resultLock:
+                        share.result[task[2]] = {"status":"stopped","result":"connect error"}
+                        logging.error('Host: %s ipmi-%s connect error' % (info['hostip'],info['ipmiip']))
                     continue
                 if task[1] == 'on':
                     if cli.setPowerState('POWER_ON'):
                         HandlerProcess.dbupdate(task[0], 'on')
+                        with share.resultLock:
+                            share.result[task[2]] = {"status":"stopped","result":"on successful"}
+                            logging.info('Host: %s on successful' % info['hostip'])
+                        continue
                     else:
+                        with share.resultLock:
+                            share.result[task[2]] = {"status":"stopped","result":"on failed"}
+                            logging.error('Host: %s on failed' % info['hostip'])
                         continue
                 if task[1] == 'off':
                     if cli.setPowerState('POWER_OFF'):
                         HandlerProcess.dbupdate(task[0], 'off')
+                        with share.resultLock:
+                            share.result[task[2]] = {"status":"stopped","result":"off successful"}
+                            logging.info('Host: %s off successful' % info['hostip'])
+                        continue
                     else:
+                        with share.resultLock:
+                            share.result[task[2]] = {"status":"stopped","result":"off failed"}
+                            logging.error('Host: %s off failed' % info['hostip'])
                         continue
                 if task[1] == 'reboot':
                     if cli.setPowerState('REBOOT'):
                         HandlerProcess.dbupdate(task[0], 'on')
+                        with share.resultLock:
+                            share.result[task[2]] = {"status":"stopped","result":"reboot successful"}
+                            logging.info('Host: %s reboot successful' % info['hostip'])
+                        continue
                     else:
+                        with share.resultLock:
+                            share.result[task[2]] = {"status":"stopped","result":"reboot failed"}
+                            logging.error('Host: %s reboot failed' % info['hostip'])
+                        continue
+                if task[1] == 'status':
+                    status = cli.getPowerState()
+                    if not status:
+                        with share.resultLock:
+                            share.result[task[2]] = {"status": "stoped","result":"cannot get status"}
+                            logging.error('Host: %s cannot get status' % info['hostip'])
+                        continue
+                    if status == "POWER_ON":
+                        with share.resultLock:
+                            share.result[task[2]] = {"status": "stoped","result":"power on"}
+                            logging.info('Host: %s is power on' % info['hostip'])
+                        continue
+                    if status == "POWER_OFF":
+                        with share.resultLock:
+                            share.result[task[2]] = {"status": "stoped","result": "power off"}
+                            logging.info('Host: %s is power off' % info['hostip'])
+                        continue
+                    if status == "REBOOT":
+                        with share.resultLock:
+                            share.result[task[2]] = {"status": "stoped","result": "power reboot"}
+                            logging.info('Host: %s is power reboot' % info['hostip'])
                         continue
 
-    def run(self):
-        setproctitle.setproctitle('idrac: Handler Process')
-        os.setegid(pwd.getpwnam(HandlerProcess.config['daemon']['group']).pw_gid)
-        os.seteuid(pwd.getpwnam(HandlerProcess.config['daemon']['user']).pw_uid)
-        for i in range(int(HandlerProcess.config['daemon']['threads'])):
+    class TasksManagerThread(threading.Thread):
+        def __init__(self):
+            threading.Thread.__init__(self)
+            self.daemon = True
+            self.status = 'start'
+            self.setName('Tasks Manager Thread')
+            with HandlerProcess.threadPoolLock:
+                HandlerProcess.threadPool.append(self)
+
+        def run(self):
+            while True:
+                with share.tasksLock:
+                    num = len(share.tasks)
+                    if num != 0:
+                        while num > 0:
+                            HandlerProcess.taskQueue.put(share.tasks.pop())
+                            num -= 1
+                time.sleep(1)
+
+    @staticmethod
+    def run():
+        HandlerProcess.TasksManagerThread().start()
+        for i in range(int(share.config['daemon']['threads'])):
             HandlerProcess.HandlerThread().start()
-        while True:
-            with HandlerProcess.tasksLock:
-                num = len(HandlerProcess.tasks)
-                if num != 0:
-                    while num > 0:
-                        HandlerProcess.taskQueue.put(HandlerProcess.tasks.pop())
-                        num -= 1
-            time.sleep(1)
 
 
-class WebManageProcess(multiprocessing.Process):
-    hostinfo = {}
-    tasks = []
-    tasksLock = None
-    config = None
-
+class WebManageProcess(object):
     def __init__(self):
-        multiprocessing.Process.__init__(self)
         self.daemon = True
 
     @staticmethod
+    def mkstr(size=8):
+        pool = list(range(97, 123)) + list(range(65, 91)) + list(range(48, 58))
+        _str = ''
+        for i in range(size):
+            _str += chr(random.choice(pool))
+        return _str
+
+    @staticmethod
     def sqlparse():
-        val = WebManageProcess.config['table']['fieldmap']
+        val = share.config['table']['fieldmap']
         field = ','.join([
             val['id'], val['hostip'], val['ipmiip'],
             val['ipmiuser'], val['ipmipass'], val['status'], val['position']
         ])
-        table = WebManageProcess.config['table']['name']
+        table = share.config['table']['name']
 
         def limitparse():
-            _limit = WebManageProcess.config['table'].get('limit')
+            _limit = share.config['table'].get('limit')
             limits = ''
             if not _limit: return ''
             _tmp = []
@@ -194,8 +267,40 @@ class WebManageProcess(multiprocessing.Process):
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
             bottle.response.set_header('Access-Control-Allow-Method', '*')
 
-        loop = list(range(1000))
 
+        @app.route('/thread/list')
+        def thread_list():
+            for i in HandlerProcess.threadPool:
+                yield i.name+'\t\t('+i.status+')\n'
+
+        @app.route('/thread/add/<num>')
+        def thread_add(num):
+            for i in range(int(num)):
+                HandlerProcess.HandlerThread().start()
+
+        @app.route('/thread/stop/<num>')
+        def thread_stop(num):
+            threadnum = len(HandlerProcess.threadPool)-1
+            if num == 'all':
+                num = threadnum
+            num = int(num)
+            if num > threadnum:
+                num = threadnum
+            for i in range(num):
+                with share.tasksLock:
+                    share.tasks.append('stop')
+
+        @app.route('/result/show')
+        def result_show():
+            with share.resultLock:
+                return share.result
+
+        @app.route('/result/clean')
+        def result_clean():
+            with share.resultLock:
+                share.result = {}
+
+        loop = list(range(1000))
         @app.route('/loop')
         def _loop():
             while True:
@@ -212,25 +317,25 @@ class WebManageProcess(multiprocessing.Process):
             如果IP的值为all 则返回所有检索到的信息
             """
             if ip == 'all':
-                hostinfo = {}
-                with pymysql.connect(**WebManageProcess.config['mysql']) as db:
+                _hostinfo = {}
+                with pymysql.connect(**share.config['mysql']) as db:
                     for i in range(db.execute(WebManageProcess.sqlparse())):
                         line = db.fetchone()
                         if not line[2]: continue
-                        WebManageProcess.hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2],
+                        share.hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2],
                                                                    'username': line[3],
                                                                    'password': line[4], 'status': line[5],
                                                                    'position': line[6]}
-                        hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2], 'status': line[5],
+                        _hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2], 'status': line[5],
                                                   'position': line[6]}
-                return json.dumps(hostinfo, ensure_ascii=False)
+                return json.dumps(_hostinfo, ensure_ascii=False)
             else:
                 sql = WebManageProcess.sqlparse()
                 if 'where' in sql:
-                    sql = sql + ' and ' + WebManageProcess.config['table']['fieldmap']['hostip'] + '="' + ip + '"'
+                    sql = sql + ' and ' + share.config['table']['fieldmap']['hostip'] + '="' + ip + '"'
                 else:
-                    sql = sql + ' where ' + WebManageProcess.config['table']['fieldmap']['hostip'] + '="' + ip + '"'
-                with pymysql.connect(**WebManageProcess.config['mysql']) as db:
+                    sql = sql + ' where ' + share.config['table']['fieldmap']['hostip'] + '="' + ip + '"'
+                with pymysql.connect(**share.config['mysql']) as db:
                     l = db.execute(sql)
                     if l == 1:
                         line = db.fetchone()
@@ -239,7 +344,7 @@ class WebManageProcess(multiprocessing.Process):
                     else:
                         return {}
 
-        if not WebManageProcess.hostinfo: idrac_status('all')
+        if not share.hostinfo: idrac_status('all')
 
         @app.route('/idrac/control/async', method=['POST'])
         def idrac_control_async():
@@ -255,17 +360,31 @@ class WebManageProcess(multiprocessing.Process):
             try:
                 ids = bottle.request.json.get('id')
                 action = bottle.request.json.get('action').lower()
-                if action not in ["on", "off", "reboot"]: return {"msg": "error action"}
+                if action not in ["on", "off", "reboot", "status"]: return {"status": "error", "result": "error action"}
+                taskid = []
                 if type(ids) != list:
-                    with WebManageProcess.tasksLock:
-                        WebManageProcess.tasks.append((str(ids), action))
+                    with share.tasksLock:
+                        _taskid = WebManageProcess.mkstr()
+                        share.tasks.append((str(ids), action, _taskid))
+                        taskid.append({str(ids):_taskid})
                 else:
-                    with WebManageProcess.tasksLock:
-                        for id_ in set(ids):
-                            WebManageProcess.tasks.append((str(id_), action))
-                return {"status": "ok"}
+                    with share.tasksLock:
+                        for _id in set(ids):
+                            _taskid = WebManageProcess.mkstr()
+                            share.tasks.append((str(_id), action, _taskid))
+                            taskid.append({str(_id):_taskid})
+                # print(share.tasks)
+                return {"status": "ok","taskid":taskid}
             except Exception as e:
-                return {"status": "err", "msg": str(e)}
+                return {"status": "err", "result": str(e)}
+
+        @app.route('/idrac/result/<taskid>', method=['GET'])
+        def idrac_result(taskid):
+            try:
+                return share.result.pop(taskid)
+            except KeyError:
+                return {}
+            # return share.result.get(taskid,{})
 
         @app.route('/idrac/control/sync', method=['POST'])
         def idrac_control_sync():
@@ -280,34 +399,54 @@ class WebManageProcess(multiprocessing.Process):
             try:
                 _id = str(bottle.request.json.get('id'))
                 action = bottle.request.json.get('action').lower()
-                if action not in ["on", "off", "reboot", "status"]: return {"status": "err", "msg": "error action"}
-                info = WebManageProcess.hostinfo.get(_id)
-                if info is None: return {"status": "err", "msg": "host not found"}
+                if action not in ["on", "off", "reboot", "status"]:
+                    return {"status": "error", "result": "error action"}
+                info = share.hostinfo.get(_id)
+                if info is None:
+                    logging.error('ID: %s host not fonud' % _id)
+                    return {"status": "error", "result": "host not found"}
                 cli = HandlerProcess.idrac(ip=info['ipmiip'], username=info['username'], password=info['password'])
-                if not cli.ping(): return {"status": "err", "msg": "connect error"}
+                if not cli.ping():
+                    logging.error('Host: %s ipmi-%s connect error' % (info['hostip'],info['ipmiip']))
+                    return {"status": "error", "result": "connect error"}
                 if action == 'on':
                     if cli.setPowerState('POWER_ON'):
                         HandlerProcess.dbupdate(_id, 'on')
-                        return {"status": "ok"}
-                    return {"status": "err", "msg": "on failed"}
+                        logging.info('Host: %s on successful' % info['hostip'])
+                        return {"status": "ok", "result": "on successful"}
+                    logging.error('Host: %s on failed' % info['hostip'])
+                    return {"status": "error", "result": "on failed"}
                 if action == 'off':
                     if cli.setPowerState('POWER_OFF'):
                         HandlerProcess.dbupdate(_id, 'off')
-                        return {"status": "ok"}
-                    return {"status": "err", "msg": "off failed"}
+                        logging.info('Host: %s off successful' % info['hostip'])
+                        return {"status": "ok", "result": "off successful"}
+                    logging.error('Host: %s off failed' % info['hostip'])
+                    return {"status": "error", "result": "off failed"}
                 if action == 'reboot':
                     if cli.setPowerState('REBOOT'):
                         HandlerProcess.dbupdate(_id, 'on')
-                        return {"status": "ok"}
-                    return {"status": "err", "msg": "reboot failed"}
+                        logging.info('Host: %s reboot successful' % info['hostip'])
+                        return {"status": "ok", "result": "reboot successful"}
+                    logging.error('Host: %s reboot failed' % info['hostip'])
+                    return {"status": "error", "result": "reboot failed"}
                 if action == 'status':
                     status = cli.getPowerState()
-                    if not status: return {"status": "err", "msg": "cannot get status"}
-                    if status == "POWER_ON": return {"status": "on"}
-                    if status == "POWER_OFF": return {"status": "off"}
-                    if status == "REBOOT": return {"status": "reboot"}
+                    if not status:
+                        logging.error('Host: %s cannot get status' % info['hostip'])
+                        return {"status": "error", "result": "cannot get status"}
+                    if status == "POWER_ON":
+                        logging.info('Host: %s is power on' % info['hostip'])
+                        return {"status": "ok","result":"power on"}
+                    if status == "POWER_OFF":
+                        logging.info('Host: %s is power off' % info['hostip'])
+                        return {"status": "ok","result": "power off"}
+                    if status == "REBOOT":
+                        logging.info('Host: %s is power reboot' % info['hostip'])
+                        return {"status": "ok","result": "power reboot"}
             except Exception as e:
-                return {"status": "err", "msg": str(e)}
+                logging.error(str(e))
+                return {"status": "error", "result": str(e)}
 
         @app.route('/idrac/<action>/<ip>', method=['GET'])
         def simple_control(action, ip):
@@ -317,58 +456,73 @@ class WebManageProcess(multiprocessing.Process):
             """
             try:
                 if action not in ["on", "off", "reboot", "status"]: return "仅支持 on/off/reboot/status 操作\n"
-                val = WebManageProcess.config['table']['fieldmap']
+                val = share.config['table']['fieldmap']
                 field = ','.join([val['id'], val['ipmiip'], val['ipmiuser'], val['ipmipass']])
-                table = WebManageProcess.config['table']['name']
+                table = share.config['table']['name']
                 # info = None
                 sql = 'select {field} from {table} where {host}="{ip}"'.format(
                     field=field, table=table, host=val['hostip'], ip=ip)
-                with pymysql.connect(**WebManageProcess.config['mysql']) as db:
+                with pymysql.connect(**share.config['mysql']) as db:
                     line = db.execute(sql)
                     if line != 1:
+                        logging.error('Host: %s can not found' % ip)
                         return "IP地址查询有误 请检查数据库是否存在此IP 或者此IP记录是否只有一条\n"
                     info = db.fetchone()
                 _id = str(info[0])
                 cli = HandlerProcess.idrac(ip=info[1], username=info[2], password=info[3])
-                if not cli.ping(): return "连接此IDRAC失败\n"
+                if not cli.ping():
+                    logging.error('Host: %s ipmi-%s connect error' % (ip,info[1]))
+                    return "连接此IDRAC失败\n"
                 if action == 'on':
                     if cli.setPowerState('POWER_ON'):
                         HandlerProcess.dbupdate(_id, 'on')
+                        logging.info('Host: %s on successful' % ip)
                         return "主机：%s 启动成功\n" % ip
+                    logging.error('Host: %s on failed' % ip)
                     return "主机：%s 启动失败\n" % ip
                 if action == 'off':
                     if cli.setPowerState('POWER_OFF'):
                         HandlerProcess.dbupdate(_id, 'off')
+                        logging.info('Host: %s off successful' % ip)
                         return "主机：%s 关闭成功\n" % ip
+                    logging.error('Host: %s off failed' % ip)
                     return "主机：%s 关闭失败\n" % ip
                 if action == 'reboot':
                     if cli.setPowerState('REBOOT'):
                         HandlerProcess.dbupdate(_id, 'on')
+                        logging.info('Host: %s reboot successful' % ip)
                         return "主机：%s 重启成功\n" % ip
+                    logging.error('Host: %s reboot failed' % ip)
                     return "主机：%s 重启失败\n" % ip
                 if action == 'status':
                     status = cli.getPowerState()
-                    if not status: return "状态获取失败\n"
-                    if status == "POWER_ON": return "主机：%s 已开机\n" % ip
-                    if status == "POWER_OFF": return "主机：%s 已关机\n" % ip
-                    if status == "REBOOT": return "主机：%s 正在重启\n" % ip
+                    if not status:
+                        logging.error('Host: %s cannot get status' % ip)
+                        return "主机：%s 状态获取失败\n" % ip
+                    if status == "POWER_ON":
+                        logging.info('Host: %s is power on' % ip)
+                        return "主机：%s 已开机\n" % ip
+                    if status == "POWER_OFF":
+                        logging.info('Host: %s is power off' % ip)
+                        return "主机：%s 已关机\n" % ip
+                    if status == "REBOOT":
+                        logging.info('Host: %s is power reboot' % ip)
+                        return "主机：%s 正在重启\n" % ip
             except Exception as e:
+                logging.error(str(e))
                 return "抱歉 服务端出错了\n详情: " + str(e) + '\n'
 
         return app
 
-    def run(self):
-        setproctitle.setproctitle('idrac: Web Manage Process')
-        os.setegid(pwd.getpwnam(WebManageProcess.config['daemon']['group']).pw_gid)
-        os.seteuid(pwd.getpwnam(WebManageProcess.config['daemon']['user']).pw_uid)
-        # from gevent import monkey;monkey.patch_all(socket=False, ssl=False)
+    @staticmethod
+    def run():
         from gevent import monkey; monkey.patch_time()
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
-        bind = (WebManageProcess.config['web']['listen'], WebManageProcess.config['web']['port'])
+        bind = (share.config['web']['listen'], share.config['web']['port'])
         app = WebManageProcess.webapi()
         server = WSGIServer(bind, application=app, handler_class=WebSocketHandler)
-        print('Server listen on %s:%s ...' % bind)
+        print('[PID: %s] Server listen on %s:%s ...' % (os.getpid(), bind[0],bind[1]))
         server.serve_forever()
 
 
@@ -392,44 +546,21 @@ def usage():
     sys.exit(255)
 
 
-def daemon(config):
-    setproctitle.setproctitle('idrac: Communication Process')
-    os.setegid(pwd.getpwnam(config['daemon']['group']).pw_gid)
-    os.seteuid(pwd.getpwnam(config['daemon']['user']).pw_uid)
-    man = multiprocessing.Manager()
-    # {'id':{'ip':'127.0.0.1','username':'root','password':'calvin','hostip':'127.0.0.1'}}
-    hostinfo = man.dict()
-    tasks = man.list()
-    tasksLock = man.Lock()
-    # 初始化处理进程和web管理进程
-    setproctitle.setproctitle('idrac: Daemon Process')
-    HandlerProcess.hostinfo = hostinfo
-    HandlerProcess.tasks = tasks
-    HandlerProcess.tasksLock = tasksLock
-    HandlerProcess.config = config
-    H = HandlerProcess()
-    WebManageProcess.hostinfo = hostinfo
-    WebManageProcess.tasks = tasks
-    WebManageProcess.tasksLock = tasksLock
-    WebManageProcess.config = config
-    W = WebManageProcess()
+def daemon():
+    os.setegid(pwd.getpwnam(share.config['daemon']['group']).pw_gid)
+    os.seteuid(pwd.getpwnam(share.config['daemon']['user']).pw_uid)
+    setproctitle.setproctitle('idrac_daemon_process')
 
-    # 启动这两个进程
-    H.start()
-    W.start()
-
-    # 杀死子进程的方法 然后捕获SIGTERM信号
+    # 杀死进程的方法 然后捕获SIGTERM信号
     def killsubprocess(sig_num, addtion):
         del sig_num, addtion
-        H.terminate()
-        W.terminate()
         print('IDRAC Manager Exit...')
+        os.kill(os.getpid(), 9)
 
     signal.signal(signal.SIGTERM, killsubprocess)
 
-    # 父进程(Daemon) 等待两个子进程
-    H.join()
-    W.join()
+    HandlerProcess.run()
+    WebManageProcess.run()
 
 
 def optparse():
@@ -437,7 +568,9 @@ def optparse():
         "daemon": {
             "threads": 10,
             "user": "nobody",
-            "group": "nobody"
+            "group": "nobody",
+            "log": "/tmp/idracManager.log",
+            "log-level": "info"
         },
         "web": {
             "listen": "0.0.0.0",
@@ -480,6 +613,14 @@ def optparse():
         'REBOOT': 'reboot'
     }
 
+    loglevel = {
+        'debug': 10,
+        'info': 20,
+        'warning': 30,
+        'error': 40,
+        'caitical': 50
+    }
+
     try:
         options = getopt.getopt(sys.argv[1:], 'vhdc:i:u:p:a:t:', ['config-template'])
     except getopt.GetoptError as e:
@@ -507,8 +648,13 @@ def optparse():
             if hasops('-d') == '':
                 pid = os.fork()
                 if pid != 0: sys.exit(0)
-            CONFIG = json.load(open(value))
-            daemon(CONFIG)
+            share.config = json.load(open(value))
+            logging.basicConfig(level=loglevel.get(share.config['daemon']['log-level'],20),
+                                format='%(asctime)s [idracManager] %(levelname)s: %(message)s',
+                                datefmt='%Y-%m-%d %H:%M:%S',
+                                filename=share.config['daemon']['log'],
+                                filemode='a')
+            daemon()
         if name == '-i':
             if not hasops('-a'):
                 print('必须使用 -a 指定要进行的操作: on/off/reboot')
