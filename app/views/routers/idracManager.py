@@ -169,22 +169,22 @@ class HandlerProcess(object):
                     status = cli.getPowerState()
                     if not status:
                         with share.resultLock:
-                            share.result[task[2]] = {"status": "stoped","result":"cannot get status"}
+                            share.result[task[2]] = {"status": "finish","result":"cannot get status"}
                             logging.error('Host: %s cannot get status' % info['hostip'])
                         continue
                     if status == "POWER_ON":
                         with share.resultLock:
-                            share.result[task[2]] = {"status": "stoped","result":"power on"}
+                            share.result[task[2]] = {"status": "finish","result":"power on"}
                             logging.info('Host: %s is power on' % info['hostip'])
                         continue
                     if status == "POWER_OFF":
                         with share.resultLock:
-                            share.result[task[2]] = {"status": "stoped","result": "power off"}
+                            share.result[task[2]] = {"status": "finish","result": "power off"}
                             logging.info('Host: %s is power off' % info['hostip'])
                         continue
                     if status == "REBOOT":
                         with share.resultLock:
-                            share.result[task[2]] = {"status": "stoped","result": "power reboot"}
+                            share.result[task[2]] = {"status": "finish","result": "power reboot"}
                             logging.info('Host: %s is power reboot' % info['hostip'])
                         continue
 
