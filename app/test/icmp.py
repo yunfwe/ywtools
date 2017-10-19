@@ -1,20 +1,23 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
 import socket
 import struct
 def checksum(source_string):
-    sum = 0
+    s = 0
     countTo = (len(source_string)/2)*2
     count = 0
     while count<countTo:
         thisVal = ord(source_string[count + 1])*256 + ord(source_string[count])
-        sum = sum + thisVal
-        sum = sum & 0xffffffff 
+        s = s + thisVal
+        s = s & 0xffffffff
         count = count + 2
     if countTo<len(source_string):
-        sum = sum + ord(source_string[len(source_string) - 1])
-        sum = sum & 0xffffffff 
-    sum = (sum >> 16)  +  (sum & 0xffff)
-    sum = sum + (sum >> 16)
-    answer = ~sum
+        s = s + ord(source_string[len(source_string) - 1])
+        s = s & 0xffffffff
+    s = (s >> 16)  +  (s & 0xffff)
+    s = s + (s >> 16)
+    answer = ~s
     answer = answer & 0xffff
     answer = answer >> 8 | (answer << 8 & 0xff00)
     return answer
@@ -28,6 +31,6 @@ def ping(ip):
             "!BBHHH", 8, 0, chksum, 0, 0
     )
     s.sendto(packet, (ip, 1))
-    s.recvfrom()
+    print(s.recvfrom(100))
 if __name__=='__main__':
     ping('192.168.41.56')
