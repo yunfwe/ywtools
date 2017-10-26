@@ -265,7 +265,8 @@ class WebManageProcess(object):
             浏览器请求跨域处理
             """
             bottle.response.set_header('Access-Control-Allow-Origin', '*')
-            bottle.response.set_header('Access-Control-Allow-Method', '*')
+            bottle.response.set_header('Access-Control-Allow-Methods', '*')
+            bottle.response.set_header('Access-Control-Allow-Headers', "Content-Type")
 
 
         @app.route('/thread/list')
@@ -346,7 +347,7 @@ class WebManageProcess(object):
 
         if not share.hostinfo: idrac_status('all')
 
-        @app.route('/idrac/control/async', method=['POST'])
+        @app.route('/idrac/control/async', method=['POST','OPTIONS'])
         def idrac_control_async():
             """
             接受 {"id":[1,2,3,4],"action":"on"} 或者 {"id":1,"action":"on"} 的json格式
@@ -386,7 +387,7 @@ class WebManageProcess(object):
                 return {}
             # return share.result.get(taskid,{})
 
-        @app.route('/idrac/control/sync', method=['POST'])
+        @app.route('/idrac/control/sync', method=['POST','OPTIONS'])
         def idrac_control_sync():
             """
             接受 {"id":1,"action":"on"} 的json格式

@@ -7,6 +7,6 @@ from bottle import response
 def allowOrigin(func):
     def wrap(*args, **kwargs):
         response.set_header('Access-Control-Allow-Origin','*')
-        response.set_header('Access-Control-Allow-Method','*')
+        response.set_header('Access-Control-Allow-Methods','*')
         return func(*args, **kwargs)
     return wrap
