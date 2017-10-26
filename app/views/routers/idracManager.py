@@ -168,21 +168,25 @@ class HandlerProcess(object):
                 if task[1] == 'status':
                     status = cli.getPowerState()
                     if not status:
+                        HandlerProcess.dbupdate(task[0], 'unknown')
                         with share.resultLock:
                             share.result[task[2]] = {"status": "finish","result":"cannot get status"}
                             logging.error('Host: %s cannot get status' % info['hostip'])
                         continue
                     if status == "POWER_ON":
+                        HandlerProcess.dbupdate(task[0], 'on')
                         with share.resultLock:
                             share.result[task[2]] = {"status": "finish","result":"power on"}
                             logging.info('Host: %s is power on' % info['hostip'])
                         continue
                     if status == "POWER_OFF":
+                        HandlerProcess.dbupdate(task[0], 'off')
                         with share.resultLock:
                             share.result[task[2]] = {"status": "finish","result": "power off"}
                             logging.info('Host: %s is power off' % info['hostip'])
                         continue
                     if status == "REBOOT":
+                        HandlerProcess.dbupdate(task[0], 'on')
                         with share.resultLock:
                             share.result[task[2]] = {"status": "finish","result": "power reboot"}
                             logging.info('Host: %s is power reboot' % info['hostip'])
@@ -435,15 +439,19 @@ class WebManageProcess(object):
                     status = cli.getPowerState()
                     if not status:
                         logging.error('Host: %s cannot get status' % info['hostip'])
+                        HandlerProcess.dbupdate(_id, 'unknown')
                         return {"status": "error", "result": "cannot get status"}
                     if status == "POWER_ON":
                         logging.info('Host: %s is power on' % info['hostip'])
+                        HandlerProcess.dbupdate(_id, 'on')
                         return {"status": "ok","result":"power on"}
                     if status == "POWER_OFF":
                         logging.info('Host: %s is power off' % info['hostip'])
+                        HandlerProcess.dbupdate(_id, 'off')
                         return {"status": "ok","result": "power off"}
                     if status == "REBOOT":
                         logging.info('Host: %s is power reboot' % info['hostip'])
+                        HandlerProcess.dbupdate(_id, 'on')
                         return {"status": "ok","result": "power reboot"}
             except Exception as e:
                 logging.error(str(e))
@@ -499,15 +507,19 @@ class WebManageProcess(object):
                     status = cli.getPowerState()
                     if not status:
                         logging.error('Host: %s cannot get status' % ip)
+                        HandlerProcess.dbupdate(_id, 'unknown')
                         return "主机：%s 状态获取失败\n" % ip
                     if status == "POWER_ON":
                         logging.info('Host: %s is power on' % ip)
+                        HandlerProcess.dbupdate(_id, 'on')
                         return "主机：%s 已开机\n" % ip
                     if status == "POWER_OFF":
                         logging.info('Host: %s is power off' % ip)
+                        HandlerProcess.dbupdate(_id, 'off')
                         return "主机：%s 已关机\n" % ip
                     if status == "REBOOT":
                         logging.info('Host: %s is power reboot' % ip)
+                        HandlerProcess.dbupdate(_id, 'on')
                         return "主机：%s 正在重启\n" % ip
             except Exception as e:
                 logging.error(str(e))
