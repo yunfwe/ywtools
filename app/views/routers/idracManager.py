@@ -272,7 +272,6 @@ class WebManageProcess(object):
             bottle.response.set_header('Access-Control-Allow-Methods', '*')
             bottle.response.set_header('Access-Control-Allow-Headers', "Content-Type")
 
-
         @app.route('/thread/list')
         def thread_list():
             for i in HandlerProcess.threadPool:
@@ -305,6 +304,15 @@ class WebManageProcess(object):
             with share.resultLock:
                 share.result = {}
 
+        @app.route('/result/status')
+        def isdone():
+            s = [x.status for x in HandlerProcess.threadPool]
+            if 'running' in s:
+                return {'status':'running'}
+            else:
+                result_clean()
+                return {'status':'pendding'}
+
         loop = list(range(1000))
         @app.route('/loop')
         def _loop():
@@ -321,8 +329,8 @@ class WebManageProcess(object):
             根据IP查询信息
             如果IP的值为all 则返回所有检索到的信息
             """
+            _hostinfo = {}
             if ip == 'all':
-                _hostinfo = {}
                 with pymysql.connect(**share.config['mysql']) as db:
                     for i in range(db.execute(WebManageProcess.sqlparse())):
                         line = db.fetchone()
@@ -335,19 +343,32 @@ class WebManageProcess(object):
                                                   'position': line[6]}
                 return json.dumps(_hostinfo, ensure_ascii=False)
             else:
+                ip = ip.replace('*','%')
+                if ip.count('.') < 3: ip = ip+'%'
                 sql = WebManageProcess.sqlparse()
                 if 'where' in sql:
-                    sql = sql + ' and ' + share.config['table']['fieldmap']['hostip'] + '="' + ip + '"'
+                    sql = sql + ' and ' + share.config['table']['fieldmap']['hostip'] + ' like "%' + ip + '"'
                 else:
-                    sql = sql + ' where ' + share.config['table']['fieldmap']['hostip'] + '="' + ip + '"'
+                    sql = sql + ' where ' + share.config['table']['fieldmap']['hostip'] + ' like "%' + ip + '"'
+                # with pymysql.connect(**share.config['mysql']) as db:
+                #     l = db.execute(sql)
+                #     if l == 1:
+                #         line = db.fetchone()
+                #         return json.dumps({'id': str(line[0]), 'hostip': line[1], 'ipmiip': line[2], 'status': line[5],
+                #                            'position': line[6]}, ensure_ascii=False)
+                #     else:
+                #         return {}
                 with pymysql.connect(**share.config['mysql']) as db:
-                    l = db.execute(sql)
-                    if l == 1:
+                    for i in range(db.execute(sql)):
                         line = db.fetchone()
-                        return json.dumps({'id': str(line[0]), 'hostip': line[1], 'ipmiip': line[2], 'status': line[5],
-                                           'position': line[6]}, ensure_ascii=False)
-                    else:
-                        return {}
+                        if not line[2]: continue
+                        share.hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2],
+                                                        'username': line[3],
+                                                        'password': line[4], 'status': line[5],
+                                                        'position': line[6]}
+                        _hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2], 'status': line[5],
+                                                   'position': line[6]}
+                return json.dumps(_hostinfo, ensure_ascii=False)
 
         if not share.hostinfo: idrac_status('all')
 
