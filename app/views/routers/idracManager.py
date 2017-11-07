@@ -347,9 +347,11 @@ class WebManageProcess(object):
                 if ip.count('.') < 3: ip = ip+'%'
                 sql = WebManageProcess.sqlparse()
                 if 'where' in sql:
-                    sql = sql + ' and ' + share.config['table']['fieldmap']['hostip'] + ' like "%' + ip + '"'
+                    sql = sql + ' and ' + share.config['table']['fieldmap']['hostip'] + ' like "%' + ip + '" or '\
+                    + share.config['table']['fieldmap']['ipmiip']  + ' like "%' + ip + '"'
                 else:
-                    sql = sql + ' where ' + share.config['table']['fieldmap']['hostip'] + ' like "%' + ip + '"'
+                    sql = sql + ' where ' + share.config['table']['fieldmap']['hostip'] + ' like "%' + ip + '" or ' \
+                          + share.config['table']['fieldmap']['ipmiip']  + ' like "%' + ip + '"'
                 # with pymysql.connect(**share.config['mysql']) as db:
                 #     l = db.execute(sql)
                 #     if l == 1:
