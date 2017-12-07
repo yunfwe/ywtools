@@ -17,3 +17,7 @@ for i in result:
 alive = filter(lambda x:x[1] is True, result)
 print(len(alive))
 
+
+# 一行代码的随机数
+import random
+rdm = lambda x:''.join(map(chr,[random.choice(range(97,123)) for _ in range(x)]))
