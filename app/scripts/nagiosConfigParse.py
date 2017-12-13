@@ -32,3 +32,22 @@ def load(filename):
         _d = i.split(None,1)
         _tmp[_d[0]] = _d[1]
     return data
+
+def dump(data):
+    cfg = ''
+    klen = 10
+    for k in data.keys():
+        for i in data[k]:
+            for b in i.items():
+                if len(b[0]) > klen:klen = len(b[0])+4
+    print(klen)
+    for k in data.keys():
+        for i in data[k]:
+            head = 'define %s{\n' % k
+            body = ''
+            for b in i.items():
+                body += '       '+b[0].ljust(klen)+b[1]+'\n'
+            foot = '}\n\n'
+            cfg += head+body+foot
+    return cfg
+
