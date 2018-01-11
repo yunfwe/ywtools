@@ -581,11 +581,11 @@ class WebManageProcess(object):
     def run():
         from gevent import monkey; monkey.patch_time()
         from gevent.pywsgi import WSGIServer
-        # from geventwebsocket.handler import WebSocketHandler
+        from geventwebsocket.handler import WebSocketHandler
         bind = (share.config['web']['listen'], share.config['web']['port'])
         app = WebManageProcess.webapi()
-        # server = WSGIServer(bind, application=app, handler_class=WebSocketHandler)
-        server = WSGIServer(bind, application=app)
+        server = WSGIServer(bind, application=app, handler_class=WebSocketHandler)
+        # server = WSGIServer(bind, application=app)
         print('[PID: %s] Server listen on %s:%s ...' % (os.getpid(), bind[0],bind[1]))
         server.serve_forever()
 
