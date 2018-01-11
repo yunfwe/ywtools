@@ -80,9 +80,10 @@ class HandlerProcess(object):
                 return False
 
     @staticmethod
-    def dbupdate(id_, status):
+    def dbupdate(id_, status, field=None):
         table = share.config['table']['name']
-        field = share.config['table']['fieldmap']['status']
+        if field is None:
+            field = share.config['table']['fieldmap']['status']
         idf = share.config['table']['fieldmap']['id']
         with pymysql.connect(**share.config['mysql']) as db:
             sql = '''update {table} set {field}="{status}" where {idf}="{i}"'''.format(
@@ -233,10 +234,7 @@ class WebManageProcess(object):
     @staticmethod
     def sqlparse():
         val = share.config['table']['fieldmap']
-        field = ','.join([
-            val['id'], val['hostip'], val['ipmiip'],
-            val['ipmiuser'], val['ipmipass'], val['status'], val['position']
-        ])
+        field = ','.join(val.values())
         table = share.config['table']['name']
 
         def limitparse():
@@ -480,6 +478,35 @@ class WebManageProcess(object):
                 logging.error(str(e))
                 return {"status": "error", "result": str(e)}
 
+        @app.route('/idrac/admin/enabled', method=['POST','OPTIONS'])
+        def idrac_admin_enabled():
+            try:
+                _id = bottle.request.json.get('id')
+                action = bottle.request.json.get('action').lower()
+                if action not in ["yes","no"]: return {"status": "error", "result": "error action"}
+                if type(_id) != list:
+                    HandlerProcess.dbupdate(str(_id),action,"enabled")
+                    return {"result":"ok"}
+                else:
+                    for i in _id:
+                        HandlerProcess.dbupdate(i,action,"enabled")
+                    return {"result":"ok"}
+            except Exception as e:
+                return {"status": "err", "result": str(e)}
+
+        @app.route('/idrac/admin/all', method=['GET'])
+        def idrac_admin_all():
+            _hostinfo = {}
+            sql = ' '.join(WebManageProcess.sqlparse().split()[:-2])
+            # return sql
+            with pymysql.connect(**share.config['mysql']) as db:
+                for i in range(db.execute(sql)):
+                    line = db.fetchone()
+                    if not line[2]: continue
+                    _hostinfo[str(line[0])] = {'hostip': line[1], 'ipmiip': line[2], 'status': line[5],
+                                               'position': line[6],'enabled':line[7]}
+            return json.dumps(_hostinfo, ensure_ascii=False)
+
         @app.route('/idrac/<action>/<ip>', method=['GET'])
         def simple_control(action, ip):
             """
@@ -554,10 +581,11 @@ class WebManageProcess(object):
     def run():
         from gevent import monkey; monkey.patch_time()
         from gevent.pywsgi import WSGIServer
-        from geventwebsocket.handler import WebSocketHandler
+        # from geventwebsocket.handler import WebSocketHandler
         bind = (share.config['web']['listen'], share.config['web']['port'])
         app = WebManageProcess.webapi()
-        server = WSGIServer(bind, application=app, handler_class=WebSocketHandler)
+        # server = WSGIServer(bind, application=app, handler_class=WebSocketHandler)
+        server = WSGIServer(bind, application=app)
         print('[PID: %s] Server listen on %s:%s ...' % (os.getpid(), bind[0],bind[1]))
         server.serve_forever()
 
@@ -631,9 +659,11 @@ def optparse():
                 "ipmipass": "ipmi_passwd",
                 "status": "status",
                 "position": "position",
+                "enabled":"enabled"
             },
             "limit": {
-                "position": "北京"
+                "position": "北京",
+                "enabled": "yes"
             }
         }
     }
