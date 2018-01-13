@@ -23,12 +23,13 @@ def sendmail(sub=None,content=None):
                    '哈尔滨机房视频','hrbvideo.jpeg',
                    '北京环控','bjhk.jpeg',
                    '哈尔滨环控','hrbhk.jpeg','访问：http://172.16.11.4/screen 手动触发']
-    mails = ['1441923087@qq.com','yung241088@126.com','liliming1976@sina.com']
-    #mails = '1441923087@qq.com'
-    yag = yagmail.SMTP(user='18600361043@163.com', password='mkxdzhzz199709',
+    #mails = ['1441923087@qq.com','yung241088@126.com','liliming1976@sina.com']
+    mails = '1441923087@qq.com'
+    yag = yagmail.SMTP(user='ytvgs87@163.com', password='aa2019',
                        host='smtp.163.com', port='25',smtp_ssl=False)
     yag.send(to=mails,subject=sub,
              contents=content)
+    print("邮件发送成功")
     yag.close()
 
 
@@ -37,6 +38,7 @@ def screen(retries=None):
     if retries is None:retries = 3
     try:
         # 北京机房视频监控
+        raise KeyError("aaa")
         URL = "http://172.16.0.252/"
         ie.maximize_window()
         # raise KeyError("hehehe")
@@ -97,6 +99,7 @@ def screen(retries=None):
         os.remove("hrbhk.jpeg")
         ie.close()
     except Exception as e:
+        print(str(e))
         if retries > 0:
             ie.close()
             retries -= 1
