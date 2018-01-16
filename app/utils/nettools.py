@@ -57,6 +57,15 @@ def getHostByAddr(ip):
 def sendIcmpPackage(ip):
     pass
 
+# 字节转换工具 最小单位是1B 如果接收参数是b需要先转换为B
+def ToSize(size):
+    ds = ['B','KB','MB','GB','TB']
+    for d in ds:
+        if size < 1024:
+            return str(size)+d
+        size = size / 1024
+    return '0B'
+
 if __name__ == '__main__':
     for i in getInterface():
         print(i.ljust(15)+'\t'+getMacByInterface(i)+' '*10+str(getAddrByInterface(i)))
