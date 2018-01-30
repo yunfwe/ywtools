@@ -5,7 +5,7 @@
 import sys
 import yagmail
 
-yag = yagmail.SMTP(user='18600361043@163.com', password='mkxdzhzz199709',
+yag = yagmail.SMTP(user='xxxxxxxx@163.com', password='xxxxxxxx',
                    host='smtp.163.com', port='25',smtp_ssl=False)
 content = sys.argv[3]
 open('/tmp/mail.log','a').write(content+'\n\n\n\n')
