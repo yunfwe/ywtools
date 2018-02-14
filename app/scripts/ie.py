@@ -23,9 +23,9 @@ def sendmail(sub=None,content=None):
                    '哈尔滨机房视频','hrbvideo.jpeg',
                    '北京环控','bjhk.jpeg',
                    '哈尔滨环控','hrbhk.jpeg','访问：http://172.16.11.4/screen 手动触发']
-    #mails = ['1441923087@qq.com','yung241088@126.com','liliming1976@sina.com']
-    mails = '1441923087@qq.com'
-    yag = yagmail.SMTP(user='ytvgs87@163.com', password='aa2019',
+    
+    mails = 'xxxxxxxx@qq.com'
+    yag = yagmail.SMTP(user='xxxxxx@163.com', password='xxxxxx',
                        host='smtp.163.com', port='25',smtp_ssl=False)
     yag.send(to=mails,subject=sub,
              contents=content)
