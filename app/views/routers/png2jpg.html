@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cboyce－HTML5图片预览</title>
+    <style type="text/css">
+        body{
+            font-family: "微软雅黑",serif;
+        }
+        /*主容器*/
+        .container{
+            width: 90%;
+            margin-top: 20px;
+        }
+        /*每一个图片预览项容器*/
+        .img-prev-item{
+            width: 200px;
+            height: 200px;
+            display: inline-block;
+            border:1px solid #ccc;
+            text-align: center;
+            border-radius: 3px;
+        }
+        /*图片预览容器*/
+        .container .img-prev-container{
+            width: 200px;
+            height: 156px;
+            margin: 0 auto;
+            border-bottom: 1px solid #ccc;
+            vertical-align: middle;
+            display: table-cell;
+            padding: 2px;
+            color: #838383;
+            text-align: center
+        }
+        /*预览图片样式*/
+        .container .img-prev-container img{
+            width: 100%;
+            height: auto;
+            max-height: 100%;
+        }
+        /*label*/
+        .selfile{
+            background-color: #0095ff;
+            color: white;
+            padding: 6px 58px;
+            border-radius: 5px;
+        }
+        /*工具条 div*/
+        .tool{
+            padding-top: 9px;
+        }
+        /*隐藏文件选择器*/
+        #fileSelecter{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="img-prev-item">
+        <div class="img-prev-container" id="img-perv-div">
+            请选择图片或者<br />将图片拖拽至此
+        </div>
+        <div class="tool">
+            <label for="fileSelecter" class="selfile">请选择图片</label>
+            <input type="file" value="请选择图片" id="fileSelecter" />
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    window.onload = function(){
+
+        //预览图的容器
+        var _img_container = getDomById('img-perv-div');
+        //创建reader对象
+        var reader = new FileReader();
+
+        //触发 change 事件
+        getDomById('fileSelecter').onchange = function(event){
+            //获取文件对象
+            var file = event.target.files[0];
+
+            //读取完成后触发
+            reader.onload = function(ev){
+                //获取图片的url
+                var _img_src = ev.target.result;
+                //添加预览图片到容器框
+                showPrevImg(_img_container,_img_src);
+            };
+            //获取到数据的url 图片将转成 base64 格式
+            reader.readAsDataURL(file);
+        };
+
+        //添加拖放支持
+        _img_container.addEventListener('dragover',function(ev){
+            //ev.stopPropagation();
+            ev.preventDefault();//阻止默认事件。比如说Chrome是直接将图片用浏览器打开
+            console.log('dragover')
+        },false);
+        // _img_container.addEventListener('dragend',function(ev){
+        //  ev.stopPropagation();
+        //  ev.preventDefault();
+        //  console.log('dragend')
+        // },false)
+        _img_container.addEventListener('drop',function(ev){
+            //ev.stopPropagation();
+            ev.preventDefault();
+            console.log('drop');
+            //console.log(ev.dataTransfer.files[0])
+            reader.onload = function(ev){
+                //获取图片的url
+                var _img_src = ev.target.result;
+
+                //添加预览图片到容器框
+                showPrevImg(_img_container,_img_src);
+
+            };
+            reader.readAsDataURL(ev.dataTransfer.files[0])
+
+        },false)
+    };
+    //简化 document.getElementById() 函数
+    function getDomById(id){
+        return document.getElementById(id);
+    }
+    function showPrevImg(_img_container,_img_src){
+        _img_container.innerHTML="";
+        //添加预览图片到容器框
+        var _imgs = _img_container.getElementsByTagName('img');
+        //容器中没有则创建，有则修改 src 属性
+        if(!_imgs.lenght){
+            _imgs[0] = document.createElement('img');
+            _imgs[0].setAttribute('src',_img_src);
+            _img_container.appendChild(_imgs[0]);
+        }else{
+            _imgs[0].setAttribute('src',_img_src);
+        }
+    }
+    //接下来要做的就是拖放结束展示图片预览效果
+</script>
+</body>
+</html>
