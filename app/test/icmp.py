@@ -21,6 +21,7 @@ def checksum(source_string):
     answer = answer & 0xffff
     answer = answer >> 8 | (answer << 8 & 0xff00)
     return answer
+
 def ping(ip):
     s = socket.socket(socket.AF_INET, socket.SOCK_RAW, 1)
     packet = struct.pack(
