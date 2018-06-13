@@ -14,54 +14,8 @@ PROG="tunclient.py"
 PROG_PATH="/usr/local/bin" ## Not need, but sometimes helpful (if $PROG resides in /opt for example).  
 PROG_ARGS="47.104.178.134 2003 -d"   
 PID_PATH="/var/run/"  
-  
-start() {  
-    if [ -e "$PID_PATH/$PROG.pid" ]; then  
-        ## Program is running, exit with error.  
-        echo "Error! $PROG is currently running!" 1>&2  
-        exit 1  
-    else  
-        ## Change from /dev/null to something like /var/log/$PROG if you want to save output.  
-        $PROG_PATH/$PROG $PROG_ARGS 2>&1 >/var/log/$PROG &  
-        pid=`ps aux |grep tunclient.py|grep -v 'grep'|head -n1|awk '{print $2}'`  
-  
-        echo "$PROG started"  
-        echo $pid > "$PID_PATH/$PROG.pid"  
-    fi  
-}  
-  
-stop() {  
-    echo "begin stop"  
-    if [ -e "$PID_PATH/$PROG.pid" ]; then  
-        ## Program is running, so stop it  
-        pid=`ps aux |grep tunclient.py|grep -v 'grep'|head -n1|awk '{print $2}'`  
-        kill $pid
-        rm -f  "$PID_PATH/$PROG.pid"  
-        echo "$PROG stopped"  
-    else  
-        ## Program is not running, exit with error.  
-        echo "Error! $PROG not started!" 1>&2  
-        exit 1  
-    fi  
-}  
-  
-  
-case "$1" in  
-    start)  
-        start  
-        exit 0  
-    ;;  
-    stop)  
-        stop  
-        exit 0  
-    ;;  
-    reload|restart|force-reload)  
-        stop  
-        start  
-        exit 0  
-    ;;  
-    **)  
-        echo "Usage: $0 {start|stop|reload}" 1>&2  
-        exit 1  
-    ;;  
-esac  
+
+while :;do
+    /usr/local/bin/tunclient.py 47.104.178.134 2003 &>/dev/null
+    sleep 3
+done &
