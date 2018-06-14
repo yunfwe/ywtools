@@ -13,8 +13,15 @@ import threading
 from PIL import ImageGrab
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from bj import main as bmain
+from bj import printinfo as bprintinfo
+from hrb import main as hmain
+from hrb import printinfo as hprintinfo
 
 mails = ['1441923087@qq.com','996906881@qq.com','liliming1976@sina.com']
+
+threading.Thread(target=bmain).start()
+threading.Thread(target=hmain).start()
 
 def sendmail_bak(sub=None,content=None):
     global mails
@@ -194,6 +201,12 @@ def main():
         os.popen("shutdown -r -t 0")
         return "正在重启\n"
 
+    @app.route('/info')
+    def v_info():
+        rst = ''
+        rst += bprintinfo()
+        rst += hprintinfo()
+        return rst
 
     bind = ('0.0.0.0',80)
     server = WSGIServer(bind,app)
