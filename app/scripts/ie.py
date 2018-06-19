@@ -191,7 +191,7 @@ def main():
 
     @app.route("/screen")
     def v_screen():
-        if len(threading.enumerate())>1:
+        if len(threading.enumerate())>3:
             return "任务正在进行中...大概需要几分钟\n"
         threading.Thread(target=screen).start()
         return "截图工作已在后台开始 请等待邮件\n"
